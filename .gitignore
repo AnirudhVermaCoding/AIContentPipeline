@@ -1,0 +1,12 @@
+node_modules/
+dist/
+runs/
+data/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.remotion/
+coverage/
+test/tmp/
