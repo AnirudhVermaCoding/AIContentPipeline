@@ -1,0 +1,111 @@
+{
+  "entities": [
+    {
+      "id": "wobble_bot",
+      "kind": "product",
+      "name": "Wobble Bot",
+      "static_features": "palm-sized rounded robot toy, matte sky-blue plastic body, one large round amber eye, two stubby articulated arms, weighted rounded base, no text or logos",
+      "dynamic_features": "clean, a few faint fingerprints on the matte body, standing on wooden-look path tiles",
+      "identity_block": "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+      "reference_images": []
+    },
+    {
+      "id": "child",
+      "kind": "character",
+      "name": "the child",
+      "static_features": "a child of about four with short dark curly hair, small hands, seen from behind or the side, never a clear frontal face",
+      "dynamic_features": "mustard-yellow long-sleeve top, grey socks, one sock half off",
+      "identity_block": "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible",
+      "reference_images": []
+    }
+  ],
+  "locks": {
+    "lighting": "soft directional morning window light from the left, warm neutral, soft shadows",
+    "palette": "cream carpet, honey wood, the toy's sky blue as the only saturated colour, one amber accent",
+    "color_grade": "gentle warm film look, lifted blacks, no heavy saturation",
+    "camera_language": "camera on the floor at the child's height; 35 to 85mm; static or a slow push in",
+    "realism": "photographic realism: real carpet fibre, wood grain, fingerprints on matte plastic, slight imperfection; no CGI, no catalogue gloss",
+    "lens_set": ["35mm", "50mm", "85mm"]
+  },
+  "style_bible": "A real family living room in soft morning window light, seen from the floor. Cream carpet, honey-wood path tiles, a small child in a mustard top seen from behind, and a matte sky-blue robot toy with an amber eye. Film-like softness, lifted blacks, gentle warmth, nothing glossy.",
+  "per_shot": [
+    {
+      "shot_id": "shot_01",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+        "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible"
+      ],
+      "reference_images": [],
+      "must_match": { "previous_shot_id": null, "attributes": [] },
+      "notes": "establishes the tile path layout used in every later shot"
+    },
+    {
+      "shot_id": "shot_02",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+        "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_01",
+        "attributes": [
+          "same carpet and tile layout",
+          "same window light direction",
+          "crooked tile in the same place"
+        ]
+      },
+      "notes": "the topple"
+    },
+    {
+      "shot_id": "shot_03",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+        "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_02",
+        "attributes": ["bot stopped on the crooked tile", "same clothes", "same light"]
+      },
+      "notes": "stillness"
+    },
+    {
+      "shot_id": "shot_04",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+        "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_03",
+        "attributes": ["same tile", "mustard sleeve", "same light"]
+      },
+      "notes": "the fix; hero moment"
+    },
+    {
+      "shot_id": "shot_05",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_04",
+        "attributes": ["straightened path", "same carpet"]
+      },
+      "notes": "toy alone"
+    },
+    {
+      "shot_id": "shot_06",
+      "identity_blocks": [
+        "the Wobble Bot, a palm-sized rounded robot toy in matte sky-blue plastic with one large round amber eye, two stubby articulated arms and a weighted rounded base, no text or logos on it",
+        "a four-year-old child with short dark curly hair in a mustard-yellow long-sleeve top and grey socks, seen only from behind or the side, face never clearly visible"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_05",
+        "attributes": ["same room", "same clothes and toy", "morning light"]
+      },
+      "notes": "doorway wide"
+    }
+  ]
+}

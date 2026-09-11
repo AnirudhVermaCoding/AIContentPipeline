@@ -1,0 +1,107 @@
+{
+  "entities": [
+    {
+      "id": "protagonist",
+      "kind": "character",
+      "name": "the protagonist",
+      "static_features": "an adult in their early thirties, medium-length dark hair, olive skin, calm face, seen in profile or from behind",
+      "dynamic_features": "dark-green knit sweater, no jewellery, sleeves pushed slightly up, hands wet",
+      "identity_block": "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+      "reference_images": []
+    },
+    {
+      "id": "night_kitchen",
+      "kind": "location",
+      "name": "the night kitchen",
+      "static_features": "small apartment kitchen at night, one warm pendant lamp over a wooden counter, steel sink, cool blue light from a window, a single white mug",
+      "dynamic_features": "condensation on the window, a wet ring on the counter, tidy and quiet",
+      "identity_block": "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug",
+      "reference_images": []
+    }
+  ],
+  "locks": {
+    "lighting": "low-key: one warm pendant practical against cool blue ambient from the window",
+    "palette": "deep blue shadows, one amber pool of lamplight, white ceramic, dark-green wool",
+    "color_grade": "muted cool shadows, warm highlights, soft contrast, filmic grain",
+    "camera_language": "50 to 100mm, shallow focus, static or a slow push in, one person, negative space on one side",
+    "realism": "photographic realism: real skin texture, wet ceramic, wool fibre, water on steel; no beauty retouch, no coloured gels, no glow",
+    "lens_set": ["50mm", "85mm", "100mm_macro"]
+  },
+  "style_bible": "A small apartment kitchen late at night, a single warm pendant lamp in a cool blue room. One adult in a dark-green knit sweater, seen in profile or from behind, and one white mug. Long lenses, shallow focus, muted cool shadows with warm highlights, filmic grain, condensation on the window. Nothing glossy, nothing diagrammatic.",
+  "per_shot": [
+    {
+      "shot_id": "shot_01",
+      "identity_blocks": [
+        "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": { "previous_shot_id": null, "attributes": [] },
+      "notes": "establishes mug, sink, lamp"
+    },
+    {
+      "shot_id": "shot_02",
+      "identity_blocks": [
+        "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_01",
+        "attributes": ["same sweater", "same mug", "same lamp and window"]
+      },
+      "notes": "the ritual in one frame"
+    },
+    {
+      "shot_id": "shot_03",
+      "identity_blocks": [
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_02",
+        "attributes": ["same mug and counter", "same lamp pool"]
+      },
+      "notes": "mug alone"
+    },
+    {
+      "shot_id": "shot_04",
+      "identity_blocks": [
+        "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_03",
+        "attributes": ["same person", "same window", "split warm/cool light"]
+      },
+      "notes": "at the window"
+    },
+    {
+      "shot_id": "shot_05",
+      "identity_blocks": [
+        "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_04",
+        "attributes": ["same sink from shot 1", "mug now on the left", "same sleeve"]
+      },
+      "notes": "the reach; hero moment"
+    },
+    {
+      "shot_id": "shot_06",
+      "identity_blocks": [
+        "an adult in their early thirties with medium-length dark hair and olive skin in a dark-green knit sweater, no jewellery, seen in profile or from behind",
+        "a small apartment kitchen at night with one warm pendant lamp over a wooden counter, a steel sink, cool blue light from a window with condensation, and a single white ceramic mug"
+      ],
+      "reference_images": [],
+      "must_match": {
+        "previous_shot_id": "shot_05",
+        "attributes": ["mug on the left", "same lamp and window", "same clothes"]
+      },
+      "notes": "wide settle"
+    }
+  ]
+}

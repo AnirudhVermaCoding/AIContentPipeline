@@ -1,0 +1,57 @@
+{
+  "music_only": false,
+  "narration": [
+    {
+      "id": "line_01",
+      "text": "She set the last tile down crooked.",
+      "beat": "quiet focus",
+      "emotion": "tenderness",
+      "delivery_note": "soft, like telling a friend across the kitchen"
+    },
+    {
+      "id": "line_02",
+      "text": "The little bot rolled, tipped, and wobbled back up.",
+      "beat": "the stumble",
+      "emotion": "gentle worry",
+      "delivery_note": "a small pause after tipped"
+    },
+    {
+      "id": "line_03",
+      "text": "She went very still.",
+      "beat": "the stumble",
+      "emotion": "gentle worry",
+      "delivery_note": "slower"
+    },
+    {
+      "id": "line_04",
+      "text": "Then she moved one tile, and tried again.",
+      "beat": "she fixes it",
+      "emotion": "delight",
+      "delivery_note": "lift on again"
+    },
+    {
+      "id": "line_05",
+      "text": "Nobody told her how.",
+      "beat": "she fixes it",
+      "emotion": "quiet pride",
+      "delivery_note": "almost a whisper"
+    },
+    {
+      "id": "line_06",
+      "text": "Twenty minutes. No screen. I checked twice.",
+      "beat": "the parent notices",
+      "emotion": "quiet pride",
+      "delivery_note": "warm, a little amused"
+    }
+  ],
+  "on_screen_text_candidates": [
+    {
+      "text": "nobody told her how",
+      "role": "hook",
+      "why": "the one line that carries the whole film"
+    }
+  ],
+  "est_duration_s": 30,
+  "total_words": 44,
+  "tone_notes": "A parent recounting, not a narrator announcing. Short breaths. No adjectives about the toy."
+}

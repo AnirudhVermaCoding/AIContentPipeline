@@ -1,0 +1,32 @@
+{
+  "depth": "light",
+  "summary": "Habits are commonly described as a loop of cue, routine and reward; with repetition the routine runs on the cue alone and the person stops noticing the cue. Context cues (place, time, preceding action) are among the strongest, which is why changing the environment slightly can surface a habit.",
+  "facts": [
+    {
+      "claim": "The habit loop is usually described as cue, routine, reward.",
+      "source": "popular summaries of habit research",
+      "confidence": "high"
+    },
+    {
+      "claim": "Place and preceding-action cues are strong drivers of automatic behaviour.",
+      "source": "habit research summaries",
+      "confidence": "medium"
+    },
+    {
+      "claim": "Small changes to the environment make automatic behaviour noticeable again.",
+      "source": null,
+      "confidence": "medium"
+    }
+  ],
+  "audience_language": ["I do it on autopilot", "my hands just go there", "I did not even notice"],
+  "sensory_details": [
+    "the same mug every night",
+    "rinsing under a thin stream of water",
+    "standing at the window for no reason",
+    "the click of a kettle"
+  ],
+  "sources": [],
+  "cautions": [
+    "Do not cite specific day counts for forming a habit; the popular numbers are not reliable."
+  ]
+}

@@ -52,3 +52,18 @@ export const StoryboardSchema = z.object({
   visual_through_line: z.string().describe("The one visual idea that ties the shots together"),
 });
 export type Storyboard = z.infer<typeof StoryboardSchema>;
+
+/** What the storyboard stage persists: the LLM storyboard conformed to measured voice timing. */
+export const StoryboardArtifactSchema = StoryboardSchema.extend({
+  shot_start_s: z.array(z.number()),
+  voice_offset_s: z.number().describe("Where the narration track starts on the timeline"),
+  conformed_to_voice: z.boolean(),
+  risk: z.object({
+    score: z.number(),
+    verdict: z.enum(["strong", "acceptable", "revise", "fail"]),
+    checks: z.array(
+      z.object({ id: z.string(), status: z.enum(["pass", "warn", "fail"]), detail: z.string() }),
+    ),
+  }),
+});
+export type StoryboardArtifact = z.infer<typeof StoryboardArtifactSchema>;

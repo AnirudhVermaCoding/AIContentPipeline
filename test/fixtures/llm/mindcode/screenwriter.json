@@ -1,0 +1,67 @@
+{
+  "music_only": false,
+  "narration": [
+    {
+      "id": "line_01",
+      "text": "You did not decide to stand here. Your hands did.",
+      "beat": "the groove",
+      "emotion": "recognition",
+      "delivery_note": "low, close, unhurried"
+    },
+    {
+      "id": "line_02",
+      "text": "Same mug. Same thin stream of water. Same window.",
+      "beat": "the groove",
+      "emotion": "recognition",
+      "delivery_note": "each phrase its own breath"
+    },
+    {
+      "id": "line_03",
+      "text": "That is a habit. A cue you stopped noticing.",
+      "beat": "the mechanism",
+      "emotion": "calm curiosity",
+      "delivery_note": "plain, no emphasis"
+    },
+    {
+      "id": "line_04",
+      "text": "The kitchen is the cue. The rinse is the routine.",
+      "beat": "the mechanism",
+      "emotion": "calm curiosity",
+      "delivery_note": "steady"
+    },
+    {
+      "id": "line_05",
+      "text": "The reward is the quiet at the window.",
+      "beat": "the mechanism",
+      "emotion": "calm curiosity",
+      "delivery_note": "softer"
+    },
+    {
+      "id": "line_06",
+      "text": "Tonight, put the mug on the other side of the sink.",
+      "beat": "the tiny change",
+      "emotion": "relief",
+      "delivery_note": "a small smile"
+    },
+    {
+      "id": "line_07",
+      "text": "Notice your hands go looking for it.",
+      "beat": "the tiny change",
+      "emotion": "relief",
+      "delivery_note": "slow"
+    },
+    {
+      "id": "line_08",
+      "text": "That is the groove. Now you can feel it.",
+      "beat": "the invitation",
+      "emotion": "calm",
+      "delivery_note": "settle"
+    }
+  ],
+  "on_screen_text_candidates": [
+    { "text": "Your hands decided.", "role": "hook", "why": "the recognition in three words" }
+  ],
+  "est_duration_s": 34,
+  "total_words": 74,
+  "tone_notes": "Second person, present tense, one idea per breath. No exclamation marks, no reassurance."
+}
