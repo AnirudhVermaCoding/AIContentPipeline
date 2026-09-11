@@ -5,7 +5,13 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -37,6 +43,40 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/runs", "!**/data", "!**/*.md"]
-  }
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/runs",
+      "!**/data",
+      "!**/*.md",
+      "!**/.next",
+      "!studio/next-env.d.ts",
+      "!studio/app/globals.css"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "studio/components/ui/**"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": "off"
+        }
+      }
+    },
+    {
+      "includes": [
+        "studio/**"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noImgElement": "off"
+          }
+        }
+      }
+    }
+  ]
 }

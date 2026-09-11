@@ -80,19 +80,42 @@ function chromeMode(): "headless-shell" | "chrome-for-testing" {
     : "headless-shell";
 }
 
+/** Real render progress as Remotion reports it (frames rendered / encoded, 0-1 fraction). */
+export interface RenderProgress {
+  phase:
+    | "preparing"
+    | "bundling"
+    | "staging_assets"
+    | "starting_browser"
+    | "rendering"
+    | "encoding"
+    | "normalizing_audio"
+    | "done"
+    | "failed";
+  progress: number;
+  rendered_frames: number;
+  encoded_frames: number;
+  total_frames: number;
+  elapsed_ms: number;
+}
+
 export async function renderWithRemotion(
   run: RunContext,
   edl: Edl,
   outputLocation: string,
   log?: (m: string) => void,
+  onProgress?: (p: Partial<RenderProgress>) => void,
 ): Promise<void> {
+  onProgress?.({ phase: "bundling" });
   const { serveUrl, publicDir } = await ensureBundle(log);
+  onProgress?.({ phase: "staging_assets" });
   const staged = stageAssets(run, edl, publicDir);
   const inputProps = buildProps(run, edl, staged, run.brand.profile) as unknown as Record<
     string,
     unknown
   >;
   const exe = browserExecutable();
+  onProgress?.({ phase: "starting_browser" });
   if (!exe) await ensureBrowser();
   const composition = await selectComposition({
     serveUrl,
@@ -103,7 +126,9 @@ export async function renderWithRemotion(
   });
   const durationInFrames = Math.max(1, Math.round(edl.total_duration_s * edl.output.fps));
   let lastPct = -1;
+  let lastTick = 0;
   log?.(`rendering ${durationInFrames} frames at ${edl.output.width}x${edl.output.height}`);
+  onProgress?.({ phase: "rendering", total_frames: durationInFrames, progress: 0 });
   await renderMedia({
     composition: {
       ...composition,
@@ -120,11 +145,22 @@ export async function renderWithRemotion(
     ...(exe ? { browserExecutable: exe } : {}),
     chromeMode: chromeMode(),
     chromiumOptions: { gl: "swangle" },
-    onProgress: ({ progress }) => {
+    onProgress: ({ progress, renderedFrames, encodedFrames, stitchStage }) => {
       const pct = Math.floor(progress * 4) * 25;
       if (pct > lastPct) {
         lastPct = pct;
         log?.(`render ${pct}%`);
+      }
+      const now = Date.now();
+      if (onProgress && (now - lastTick > 400 || progress >= 1)) {
+        lastTick = now;
+        onProgress({
+          phase: stitchStage === "muxing" ? "encoding" : "rendering",
+          progress,
+          rendered_frames: renderedFrames,
+          encoded_frames: encodedFrames,
+          total_frames: durationInFrames,
+        });
       }
     },
   });

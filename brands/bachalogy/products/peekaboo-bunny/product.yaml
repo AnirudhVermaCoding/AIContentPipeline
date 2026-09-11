@@ -1,0 +1,26 @@
+id: peekaboo-bunny
+name: Peekaboo Bunny
+category: children's toy
+description: A soft bunny that hides its face behind its ears and pops out saying "peekaboo" when its tummy is pressed.
+entity_id: peekaboo_bunny
+key_benefits:
+  - The classic peekaboo game a baby never tires of
+  - Soft, huggable and washable
+  - Gentle voice at a low volume
+allowed_claims:
+  - Suitable from 6 months
+forbidden_claims:
+  - Teaches language
+static_features: a chubby pale-grey plush bunny with long floppy ears lined in blush pink, black stitched eyes, a small pink nose and a round cream tummy, sitting upright
+dynamic_defaults: clean, sitting on a bed or a play mat
+must_preserve:
+  - shape
+  - colour (pale grey, blush pink ear lining)
+  - face
+  - materials (plush)
+  - functionality (ears cover the face, then lift)
+references: []
+reference_policy:
+  min: 2
+  hard: false
+tags: [bunny, baby]

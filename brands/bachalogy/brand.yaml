@@ -155,6 +155,12 @@ budget:
   hard_cap_usd: 2.5
   ai_video_seconds_target: 15
   keyframe_attempts: 3
+  wallet:
+    currency: INR
+    amount: 4000
+    daily: 500
+    two_day: 900
+    timezone: Asia/Kolkata
 
 forbidden:
   styles: []

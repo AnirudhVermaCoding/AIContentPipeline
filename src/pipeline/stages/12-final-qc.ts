@@ -56,6 +56,7 @@ export const finalQcStage: StageDef = {
     });
     ctx.writeOutput(report);
     run.repos.insertQc(run.runId, this.id, null, report.status, report);
+    run.repos.setRunSummary(run.runId, { qc_status: report.status, duration_s: probe.duration_s });
     const failed = report.checks.filter((c) => c.status === "fail");
     const warned = report.checks.filter((c) => c.status === "warn");
     run.events[report.status === "fail" ? "error" : report.status === "pass" ? "info" : "warn"](

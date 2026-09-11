@@ -16,11 +16,17 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "remotion:studio": "remotion studio"
+    "remotion:studio": "remotion studio",
+    "studio": "tsx src/studio/start.ts",
+    "studio:api": "tsx src/studio/server.ts",
+    "studio:web": "pnpm --dir studio dev",
+    "studio:build": "pnpm --dir studio build",
+    "typecheck:studio": "tsc -p studio/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.65",
     "@fal-ai/client": "^1.10.1",
+    "@hono/node-server": "^2.1.1",
     "@remotion/bundler": "4.0.523",
     "@remotion/cli": "4.0.523",
     "@remotion/renderer": "4.0.523",
@@ -28,6 +34,7 @@
     "better-sqlite3": "^13.0.3",
     "commander": "^15.0.0",
     "ffmpeg-static": "^5.3.0",
+    "hono": "^4.13.7",
     "mediabunny": "^1.56.1",
     "p-limit": "^7.3.2",
     "react": "^19.3.0",

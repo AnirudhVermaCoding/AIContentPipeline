@@ -11,11 +11,18 @@ import { RoutingPlanSchema } from "../../schema/routing.js";
 import type { ShotRecord } from "../../schema/shot.js";
 import type { Shot } from "../../schema/storyboard.js";
 import { StoryboardArtifactSchema } from "../../schema/storyboard.js";
-import { errorMessage, SafetyRejectionError } from "../../util/errors.js";
+import { errorMessage, RunInterruptedError, SafetyRejectionError } from "../../util/errors.js";
 import { writeFileAtomic } from "../../util/fs.js";
 import { paidCall } from "../paid.js";
 import type { RunContext } from "../run.js";
-import { computeShotHash, loadOrResetShot, saveShotRecord, shotDir, summarize } from "../shots.js";
+import {
+  computeShotHash,
+  loadOrResetShot,
+  nextAttemptNumber,
+  saveShotRecord,
+  shotDir,
+  summarize,
+} from "../shots.js";
 import type { StageDef } from "../stage.js";
 
 async function produceKeyframe(
@@ -43,19 +50,24 @@ async function produceKeyframe(
   }
   const maxAttempts = b.budget.keyframe_attempts;
   let lastFeedback = feedback;
-  for (
-    let attempt = record.attempts.filter((a) => a.kind === "keyframe").length + 1;
-    attempt <= maxAttempts;
-    attempt++
-  ) {
-    const promptRes = await runImagePrompter(
-      run,
-      stageId,
-      shot,
-      continuity,
-      previous,
-      lastFeedback,
-    );
+  // Tries are bounded per production round; version numbers keep counting from disk.
+  const priorTries = record.attempts.filter((a) => a.kind === "keyframe").length;
+  for (let tries = priorTries; tries < maxAttempts; tries++) {
+    run.control?.checkpoint(`keyframes ${shot.id}`);
+    const attempt = nextAttemptNumber(run, shot.id, "keyframe", record);
+    const overridePrompt = record.overrides?.prompt ?? null;
+    const promptRes = overridePrompt
+      ? {
+          data: { prompt: overridePrompt, negative_prompt: "" },
+          costUsd: 0,
+          attempts: 0,
+          promptVersion: "operator",
+        }
+      : await runImagePrompter(run, stageId, shot, continuity, previous, lastFeedback);
+    if (overridePrompt) {
+      // A hand-written prompt is used once; further tries fall back to the prompter with feedback.
+      record.overrides = { prompt: null, instruction: record.overrides?.instruction ?? null };
+    }
     record.cost_usd += promptRes.costUsd;
     const started = Date.now();
     const file = path.join(shotDir(run, shot.id), `keyframe_v${attempt}.png`);
@@ -74,6 +86,7 @@ async function produceKeyframe(
           promptVersion: promptRes.promptVersion,
           sourceAssets: refs.map((r) => run.rel(r)),
           resolution: `${OUTPUT.width}x${OUTPUT.height}`,
+          attempt,
         },
         () =>
           run.providers.image.generate({
@@ -135,6 +148,8 @@ async function produceKeyframe(
       );
       saveShotRecord(run, record);
     } catch (err) {
+      // A pause/cancel is not a failed attempt: nothing was requested from the provider.
+      if (err instanceof RunInterruptedError) throw err;
       record.attempts.push({
         kind: "keyframe",
         attempt,
@@ -202,10 +217,13 @@ export const keyframesStage: StageDef = {
       if (reused && record.keyframe && fs.existsSync(run.abs(record.keyframe.path)) && !rejected) {
         run.events.debug(this.id, "keyframe up to date", undefined, shot.id);
       } else {
+        run.control?.checkpoint(`keyframes ${shot.id}`);
+        run.control?.progress?.({ stage: this.id, shot: shot.id });
+        const instruction = record.overrides?.instruction ?? record.approval.note ?? null;
         if (rejected) {
           run.events.info(
             this.id,
-            `regenerating after rejection: ${record.approval.note ?? ""}`,
+            `regenerating after rejection: ${instruction ?? ""}`,
             undefined,
             shot.id,
           );
@@ -222,9 +240,10 @@ export const keyframesStage: StageDef = {
           record,
           continuity,
           rejected
-            ? `A reviewer rejected the previous keyframe: ${record.approval.note ?? "no note"}.`
+            ? `A reviewer rejected the previous keyframe: ${instruction ?? "no note"}.`
             : null,
         );
+        record.overrides = { prompt: null, instruction: null };
         record.approval = run.options.approve_keyframes
           ? { status: "pending", note: null }
           : { status: "none", note: null };

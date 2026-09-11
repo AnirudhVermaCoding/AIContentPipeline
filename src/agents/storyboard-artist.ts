@@ -64,6 +64,14 @@ Return the Storyboard.`;
 
   const textAllowed = brief.text_overlay_intent !== "none";
   const lineIds = voice.lines.map((l) => l.line_id);
+  const context: StoryboardValidationContext = {
+    clipMax,
+    entityIds,
+    lineIds,
+    textAllowed,
+    maxWordsOnScreen: b.text_policy.max_words_on_screen,
+    shotRange: b.pacing.shot_count_hint,
+  };
   return callAgent(run, {
     name: "storyboard-artist",
     tier: "creative",
@@ -71,54 +79,69 @@ Return the Storyboard.`;
     userMessage,
     stageId,
     expectedOutputTokens: 3500,
-    validate: (sb) => {
-      const issues: string[] = [];
-      const n = sb.shots.length;
-      if (n < 3 || n > 14) issues.push(`${n} shots; use between 3 and 14`);
-      sb.shots.forEach((s, i) => {
-        const expected = `shot_${String(i + 1).padStart(2, "0")}`;
-        if (s.id !== expected) issues.push(`shot ${i + 1} must have id ${expected}`);
-        if (s.duration_s <= 0) issues.push(`${s.id} needs a positive duration`);
-        if (s.motion_need === "essential" && s.duration_s > clipMax + 0.5)
-          issues.push(
-            `${s.id} is essential motion but ${s.duration_s}s exceeds the ${clipMax}s clip limit; split it or make it subtle`,
-          );
-        for (const id of s.entities_in_frame)
-          if (!entityIds.includes(id)) issues.push(`${s.id} references unknown entity "${id}"`);
-        for (const id of s.narration_line_ids)
-          if (!lineIds.includes(id))
-            issues.push(`${s.id} references unknown narration line "${id}"`);
-        if (!textAllowed && s.text_overlay)
-          issues.push(`${s.id} has text_overlay but the brief allows no text`);
-        if (s.narration_line_ids.length === 0 && i !== 0 && i !== n - 1)
-          issues.push(`${s.id} has no narration lines but is not the opening or closing shot`);
-      });
-      const assigned = sb.shots.flatMap((s) => s.narration_line_ids);
-      for (const id of lineIds) {
-        const count = assigned.filter((a) => a === id).length;
-        if (count === 0) issues.push(`narration line ${id} is not assigned to any shot`);
-        if (count > 1) issues.push(`narration line ${id} is assigned to ${count} shots`);
-      }
-      // Lines must appear in order across shots.
-      const order = assigned.map((id) => lineIds.indexOf(id));
-      for (let i = 1; i < order.length; i++) {
-        const prev = order[i - 1] ?? 0;
-        const cur = order[i] ?? 0;
-        if (cur < prev) {
-          issues.push("narration lines must be assigned to shots in script order");
-          break;
-        }
-      }
-      const risk = assessStoryboardRisk(sb, {
-        maxWordsOnScreen: b.text_policy.max_words_on_screen,
-        textAllowed,
-        shotRange: b.pacing.shot_count_hint,
-      });
-      if (risk.verdict === "fail" || risk.verdict === "revise") {
-        for (const c of risk.checks)
-          if (c.status !== "pass") issues.push(`risk check ${c.id}: ${c.detail}`);
-      }
-      return issues;
-    },
+    validate: (sb) => validateStoryboard(sb, context),
   });
+}
+
+export interface StoryboardValidationContext {
+  clipMax: number;
+  entityIds: string[];
+  lineIds: string[];
+  textAllowed: boolean;
+  maxWordsOnScreen: number;
+  shotRange: { min: number; max: number };
+}
+
+/**
+ * The storyboard invariants, shared by the artist's retry loop and the studio's storyboard
+ * editor so a hand-edited storyboard obeys exactly the rules a generated one does.
+ */
+export function validateStoryboard(sb: Storyboard, ctx: StoryboardValidationContext): string[] {
+  const { clipMax, entityIds, lineIds, textAllowed } = ctx;
+  const issues: string[] = [];
+  const n = sb.shots.length;
+  if (n < 3 || n > 14) issues.push(`${n} shots; use between 3 and 14`);
+  sb.shots.forEach((s, i) => {
+    const expected = `shot_${String(i + 1).padStart(2, "0")}`;
+    if (s.id !== expected) issues.push(`shot ${i + 1} must have id ${expected}`);
+    if (s.duration_s <= 0) issues.push(`${s.id} needs a positive duration`);
+    if (s.motion_need === "essential" && s.duration_s > clipMax + 0.5)
+      issues.push(
+        `${s.id} is essential motion but ${s.duration_s}s exceeds the ${clipMax}s clip limit; split it or make it subtle`,
+      );
+    for (const id of s.entities_in_frame)
+      if (!entityIds.includes(id)) issues.push(`${s.id} references unknown entity "${id}"`);
+    for (const id of s.narration_line_ids)
+      if (!lineIds.includes(id)) issues.push(`${s.id} references unknown narration line "${id}"`);
+    if (!textAllowed && s.text_overlay)
+      issues.push(`${s.id} has text_overlay but the brief allows no text`);
+    if (s.narration_line_ids.length === 0 && i !== 0 && i !== n - 1)
+      issues.push(`${s.id} has no narration lines but is not the opening or closing shot`);
+  });
+  const assigned = sb.shots.flatMap((s) => s.narration_line_ids);
+  for (const id of lineIds) {
+    const count = assigned.filter((a) => a === id).length;
+    if (count === 0) issues.push(`narration line ${id} is not assigned to any shot`);
+    if (count > 1) issues.push(`narration line ${id} is assigned to ${count} shots`);
+  }
+  // Lines must appear in order across shots.
+  const order = assigned.map((id) => lineIds.indexOf(id));
+  for (let i = 1; i < order.length; i++) {
+    const prev = order[i - 1] ?? 0;
+    const cur = order[i] ?? 0;
+    if (cur < prev) {
+      issues.push("narration lines must be assigned to shots in script order");
+      break;
+    }
+  }
+  const risk = assessStoryboardRisk(sb, {
+    maxWordsOnScreen: ctx.maxWordsOnScreen,
+    textAllowed,
+    shotRange: ctx.shotRange,
+  });
+  if (risk.verdict === "fail" || risk.verdict === "revise") {
+    for (const c of risk.checks)
+      if (c.status !== "pass") issues.push(`risk check ${c.id}: ${c.detail}`);
+  }
+  return issues;
 }

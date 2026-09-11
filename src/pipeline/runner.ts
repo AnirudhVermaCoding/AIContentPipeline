@@ -1,7 +1,12 @@
 import * as path from "node:path";
 import type { z } from "zod";
 import type { StageState } from "../schema/manifest.js";
-import { BudgetConflictError, BudgetExceededError, errorMessage } from "../util/errors.js";
+import {
+  BudgetConflictError,
+  BudgetExceededError,
+  errorMessage,
+  RunInterruptedError,
+} from "../util/errors.js";
 import { nowIso, shortHash, writeJsonAtomic } from "../util/fs.js";
 import type { RunContext } from "./run.js";
 import { OUTPUT_FILE } from "./run.js";
@@ -45,13 +50,14 @@ export function computeInputsHash(run: RunContext, stage: StageDef, all: StageDe
 
 /**
  * Walks the ordered stage list. A stage is skipped when it is already done with the same inputs
- * hash; otherwise it runs. Stops on failure, budget exhaustion/conflict, a pending approval, or
- * the `until` option.
+ * hash; otherwise it runs. Stops on failure, budget exhaustion/conflict, a pending approval, an
+ * operator pause/cancel, or the `until` option.
  */
 export async function runStages(run: RunContext, stages: StageDef[]): Promise<RunResult> {
   const m = run.manifest;
   m.status = "running";
   m.last_error = null;
+  m.stop_reason = null;
   run.save();
   let last: string | null = null;
 
@@ -64,14 +70,23 @@ export async function runStages(run: RunContext, stages: StageDef[]): Promise<Ru
       run.events.info(stage.id, "up to date, skipping");
       last = stage.id;
       if (run.options.until === stage.id)
-        return finish(run, "stopped", last, `stopped after ${stage.id}`);
+        return finish(run, "stopped", last, `stopped after ${stage.id}`, "until");
       continue;
     }
     if (state.status === "done" && state.inputs_hash !== inputsHash) {
       run.events.info(stage.id, "inputs changed, re-running");
     }
     if (stage.paidMedia && run.options.dry_run) {
-      return finish(run, "stopped", last, `dry run: stopping before ${stage.id}`);
+      return finish(run, "stopped", last, `dry run: stopping before ${stage.id}`, "dry_run");
+    }
+    // Cooperative pause/cancel between stages: nothing has been reserved yet, so simply stop.
+    try {
+      run.control?.checkpoint(`before ${stage.id}`);
+    } catch (err) {
+      if (err instanceof RunInterruptedError) {
+        return finish(run, "stopped", last, err.message, err.kind);
+      }
+      throw err;
     }
 
     state.status = "running";
@@ -82,6 +97,7 @@ export async function runStages(run: RunContext, stages: StageDef[]): Promise<Ru
     state.attempt += 1;
     run.save();
     run.repos.upsertStage(run.runId, stage.id, state);
+    run.control?.progress?.({ stage: stage.id, shot: null });
     const startedMs = Date.now();
     const spentBefore = run.budget.spentUsd;
 
@@ -111,6 +127,19 @@ export async function runStages(run: RunContext, stages: StageDef[]): Promise<Ru
       state.finished_at = nowIso();
       state.duration_ms = Date.now() - startedMs;
       state.cost_usd += run.budget.spentUsd - spentBefore;
+      if (err instanceof RunInterruptedError) {
+        // Work already paid for is on disk (shot records, cached lines); the stage simply
+        // re-runs on resume and reuses it. Nothing is marked failed.
+        state.status = "pending";
+        state.error = null;
+        m.status = "stopped";
+        m.stop_reason = err.kind;
+        m.last_error = null;
+        run.events.warn(stage.id, err.message);
+        run.save();
+        run.repos.upsertStage(run.runId, stage.id, state);
+        return { status: "stopped", lastStage: last, message: err.message };
+      }
       if (err instanceof BudgetExceededError) {
         state.status = "budget_conflict";
         state.error = err.message;
@@ -186,7 +215,7 @@ export async function runStages(run: RunContext, stages: StageDef[]): Promise<Ru
     run.repos.upsertStage(run.runId, stage.id, state);
 
     if (run.options.until === stage.id) {
-      return finish(run, "stopped", last, `stopped after ${stage.id}`);
+      return finish(run, "stopped", last, `stopped after ${stage.id}`, "until");
     }
   }
   return finish(run, "done", last);
@@ -197,8 +226,10 @@ function finish(
   status: "done" | "stopped",
   last: string | null,
   message?: string,
+  reason: "paused" | "cancelled" | "dry_run" | "until" | null = null,
 ): RunResult {
   run.manifest.status = status === "done" ? "done" : "stopped";
+  run.manifest.stop_reason = status === "done" ? null : reason;
   run.save();
   if (message) run.events.info(null, message);
   return { status, lastStage: last, message };

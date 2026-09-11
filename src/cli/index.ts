@@ -3,17 +3,18 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import { listBrandIds, loadBrand } from "../brand/loader.js";
+import { listProducts } from "../brand/products.js";
 import { loadEnv, providerMode } from "../config/env.js";
-import { pricingIsStale } from "../config/pricing.js";
 import { buildReport, renderMarkdown } from "../cost/report.js";
 import { Repos } from "../db/repos.js";
 import { openDb } from "../db/sqlite.js";
 import { addTrack, loadMusicLibrary, musicDir } from "../media/music.js";
+import { applyKeyframeDecisions, type KeyframeDecision } from "../pipeline/approval.js";
+import { attachProviders } from "../pipeline/attach.js";
 import { createRun, openRun, type RunContext } from "../pipeline/run.js";
 import { type RunResult, resetFrom, runStages } from "../pipeline/runner.js";
-import { loadShotRecord, saveShotRecord } from "../pipeline/shots.js";
+import { loadShotRecord } from "../pipeline/shots.js";
 import { ALL_STAGES } from "../pipeline/stages/index.js";
-import { buildProviders, checkProviders } from "../providers/registry.js";
 import { FinalQcReportSchema } from "../schema/qc.js";
 import { StoryboardArtifactSchema } from "../schema/storyboard.js";
 
@@ -24,35 +25,6 @@ program
   .name("aicp")
   .description("Local-first multi-brand AI short-form video pipeline")
   .version("0.1.0");
-
-function attachProviders(run: RunContext, mode: "live" | "mock"): void {
-  if (mode === "live") {
-    const check = checkProviders(run.providerSettings);
-    if (!check.ok) {
-      const lines = check.missing.map(
-        (m) => `  - ${m.envKey} (for ${m.capability}: ${m.provider})`,
-      );
-      throw new Error(
-        `Missing API keys for the configured providers:\n${lines.join("\n")}\nAdd them to .env or run with --mock.`,
-      );
-    }
-    for (const u of check.unpriced) {
-      console.warn(
-        `warning: no price for ${u.capability} ${u.provider}:${u.model}; costs will report as $0`,
-      );
-    }
-  }
-  if (pricingIsStale())
-    console.warn("warning: the price table is over 60 days old; refresh src/config/pricing.ts");
-  run.providers = buildProviders(run.providerSettings, {
-    mode,
-    fixtureDirs: [
-      path.resolve("test/fixtures/llm", run.manifest.brand_id),
-      path.resolve("test/fixtures/llm"),
-    ],
-    mockImageColor: run.brand.profile.visual.colors.primary,
-  });
-}
 
 function exitFor(result: RunResult, run: RunContext): never {
   const dir = path.relative(process.cwd(), run.runDir);
@@ -97,6 +69,12 @@ program
       console.log(
         `${id.padEnd(14)} ${b.profile.name} — ${b.profile.product.category}; pillars: ${b.profile.content_pillars.map((p) => p.id).join(", ")}; edit bias ${b.profile.edit_defaults.mode_bias}; text ${b.profile.text_policy.captions}; version ${b.version}`,
       );
+      for (const p of listProducts(b.dir)) {
+        const refs = p.references.filter((r) => r.exists).length;
+        console.log(
+          `  product ${p.profile.id.padEnd(20)} ${p.profile.name} (${refs} reference image${refs === 1 ? "" : "s"})`,
+        );
+      }
     }
   });
 
@@ -106,6 +84,9 @@ program
   .requiredOption("--brand <id>", "brand id (folder under brands/)")
   .requiredOption("--topic <text>", "topic or subject")
   .option("--goal <text>", "what the video should achieve")
+  .option("--product <id>", "product from brands/<brand>/products to feature")
+  .option("--title <text>", "title shown in the studio (defaults to the topic)")
+  .option("--pin-brand", "freeze the brand profile at creation for every later resume", false)
   .option("--budget <usd>", "override the absolute hard cap", Number.parseFloat)
   .option(
     "--ai-video-seconds <n>",
@@ -127,6 +108,9 @@ program
       brandId: opts.brand,
       topic: opts.topic,
       goal: opts.goal ?? null,
+      productId: opts.product ?? null,
+      title: opts.title ?? null,
+      createdBy: "cli",
       options: {
         provider_mode: mode,
         approve_keyframes: opts.approveKeyframes,
@@ -136,6 +120,7 @@ program
           : null,
         until: opts.until ?? null,
         dry_run: opts.dryRun,
+        brand_source: opts.pinBrand ? "snapshot" : "live",
       },
       quiet: opts.quiet,
     });
@@ -153,13 +138,16 @@ program
   .option("--budget <usd>", "raise the absolute hard cap", Number.parseFloat)
   .option("--approve-keyframes", "turn the approval gate on")
   .option("--no-approve-keyframes", "turn the approval gate off")
+  .option("--pin-brand", "use the brand profile frozen when the run was created")
+  .option("--adopt-brand", "use the live brand file (re-runs stages it affects)")
   .option("--quiet", "less console output", false)
   .action(async (runId, opts) => {
     const patch: Record<string, unknown> = { until: null };
     if (Number.isFinite(opts.budget)) patch.budget_override_usd = opts.budget;
     if (opts.approveKeyframes === true) patch.approve_keyframes = true;
     if (opts.approveKeyframes === false) patch.approve_keyframes = false;
-    const run = openRun(runId, { options: patch, quiet: opts.quiet });
+    const brandSource = opts.pinBrand ? "snapshot" : opts.adoptBrand ? "live" : undefined;
+    const run = openRun(runId, { options: patch, quiet: opts.quiet, brandSource });
     attachProviders(run, run.options.provider_mode);
     const result = await runStages(run, ALL_STAGES);
     exitFor(result, run);
@@ -185,32 +173,18 @@ program
   .option("--reject <shot:note...>", "shot id and note, e.g. --reject shot_03:'too dark'")
   .action((runId, opts) => {
     const run = openRun(runId, { quiet: true });
-    const sb = run.readOutput("04_storyboard", StoryboardArtifactSchema);
-    const rejects = new Map<string, string>();
+    const decisions: KeyframeDecision[] = [];
     for (const r of (opts.reject as string[] | undefined) ?? []) {
       const [id, ...note] = r.split(":");
-      if (id) rejects.set(id, note.join(":") || "rejected");
+      if (id)
+        decisions.push({ shotId: id, decision: "reject", note: note.join(":") || "rejected" });
     }
-    let approved = 0;
-    for (const shot of sb.shots) {
-      const rec = loadShotRecord(run, shot.id);
-      if (!rec || !rec.keyframe) continue;
-      if (rejects.has(shot.id)) {
-        rec.approval = { status: "rejected", note: rejects.get(shot.id) ?? null };
-        rec.status = "rejected";
-      } else if (rec.approval.status === "pending") {
-        rec.approval = { status: "approved", note: null };
-        rec.status = "approved";
-        approved += 1;
-      }
-      saveShotRecord(run, rec);
-    }
-    const stage = run.manifest.stages.keyframes;
-    if (stage) stage.status = "pending";
-    run.manifest.status = "running";
-    run.save();
+    const summary = applyKeyframeDecisions(run, decisions, {
+      approveRemainingPending: true,
+      actor: "cli",
+    });
     console.log(
-      `Approved ${approved}, rejected ${rejects.size}. Continue with: pnpm cli resume ${runId}`,
+      `Approved ${summary.approved}, rejected ${summary.rejected}. Continue with: pnpm cli resume ${runId}`,
     );
   });
 

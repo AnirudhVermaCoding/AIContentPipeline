@@ -3,16 +3,27 @@
  * never off message substrings.
  */
 
+/** Money a provider charged for a call that still failed (e.g. a billed response we rejected). */
+export interface ChargedUsage {
+  costUsd: number;
+  usage?: Record<string, unknown> | null;
+  requestId?: string | null;
+}
+
 export class PipelineError extends Error {
   constructor(
     message: string,
-    readonly options: { cause?: unknown; retryable?: boolean } = {},
+    readonly options: { cause?: unknown; retryable?: boolean; charged?: ChargedUsage } = {},
   ) {
     super(message, { cause: options.cause });
     this.name = new.target.name;
   }
   get retryable(): boolean {
     return this.options.retryable ?? false;
+  }
+  /** Set when the provider billed the call even though it failed; never pretend it was free. */
+  get charged(): ChargedUsage | undefined {
+    return this.options.charged;
   }
 }
 
@@ -21,7 +32,7 @@ export class ProviderError extends PipelineError {
   constructor(
     readonly provider: string,
     message: string,
-    options: { cause?: unknown; retryable?: boolean; status?: number } = {},
+    options: { cause?: unknown; retryable?: boolean; status?: number; charged?: ChargedUsage } = {},
   ) {
     super(`[${provider}] ${message}`, options);
     this.status = options.status;
@@ -41,8 +52,9 @@ export class ValidationError extends PipelineError {
   constructor(
     message: string,
     readonly issues: string[],
+    options: { charged?: ChargedUsage } = {},
   ) {
-    super(message, { retryable: true });
+    super(message, { retryable: true, charged: options.charged });
   }
 }
 
@@ -71,6 +83,41 @@ export class BudgetConflictError extends PipelineError {
     super(
       `Budget conflict: the plan is estimated at $${estimatedUsd.toFixed(2)} against a hard cap of $${hardCapUsd.toFixed(2)}`,
     );
+  }
+}
+
+export type BudgetRule = "wallet" | "daily" | "two_day" | "run_cap";
+
+/**
+ * A brand-level budget rule (wallet, today, 48 h) refused to admit a hold. Raised by the budget
+ * ledger before a job starts or resumes, never mid-call.
+ */
+export class BudgetWindowError extends PipelineError {
+  constructor(
+    readonly rule: BudgetRule,
+    readonly limitUsd: number,
+    readonly spentUsd: number,
+    readonly heldUsd: number,
+    readonly requestedUsd: number,
+    readonly label: string,
+  ) {
+    super(
+      `Budget rule "${rule}" blocks ${label}: needs $${requestedUsd.toFixed(3)} but $${spentUsd.toFixed(3)} spent + $${heldUsd.toFixed(3)} reserved against a limit of $${limitUsd.toFixed(2)}`,
+    );
+  }
+}
+
+/**
+ * The operator asked the run to pause or cancel. Raised at cooperative checkpoints (between
+ * stages, between shots, before a paid call is reserved); an in-flight provider call is never
+ * interrupted, so accounting stays truthful.
+ */
+export class RunInterruptedError extends PipelineError {
+  constructor(
+    readonly kind: "paused" | "cancelled",
+    readonly at: string,
+  ) {
+    super(`Run ${kind} by the operator (${at})`);
   }
 }
 

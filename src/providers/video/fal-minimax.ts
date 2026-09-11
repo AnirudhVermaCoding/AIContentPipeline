@@ -6,6 +6,7 @@ import { videoCost } from "../../config/pricing.js";
 import { ProviderError, SafetyRejectionError } from "../../util/errors.js";
 import { writeFileAtomic } from "../../util/fs.js";
 import { withRetry } from "../../util/retry.js";
+import { queueUpdate } from "../image/fal-flux2.js";
 import type { VideoGenerateOptions, VideoProvider, VideoResult } from "../types.js";
 
 export interface FalMinimaxOptions {
@@ -67,6 +68,7 @@ export class FalMinimaxVideo implements VideoProvider {
             pollInterval: 4000,
             timeout: 900_000,
             logs: false,
+            onQueueUpdate: (status) => opts.onStatus?.(queueUpdate(status)),
           });
         } catch (err) {
           throw this.wrap(err);
@@ -96,6 +98,8 @@ export class FalMinimaxVideo implements VideoProvider {
       model: this.model,
       latencyMs: Date.now() - started,
       costUsd: this.estimate(seconds),
+      costSource: "CALCULATED_FROM_USAGE",
+      requestId: result.requestId ?? null,
     };
   }
 

@@ -3,7 +3,23 @@ import { createFalClient, type FalClient } from "@fal-ai/client";
 import { imageCost } from "../../config/pricing.js";
 import { ProviderError, SafetyRejectionError } from "../../util/errors.js";
 import { withRetry } from "../../util/retry.js";
-import type { ImageGenerateOptions, ImageProvider, ImageResult } from "../types.js";
+import type {
+  GenerationStatusUpdate,
+  ImageGenerateOptions,
+  ImageProvider,
+  ImageResult,
+} from "../types.js";
+
+/** Translate fal's queue status into the vendor-neutral progress update. */
+export function queueUpdate(status: {
+  status: string;
+  queue_position?: number;
+}): GenerationStatusUpdate {
+  if (status.status === "IN_QUEUE")
+    return { status: "queued", queuePosition: status.queue_position ?? null };
+  if (status.status === "COMPLETED") return { status: "completed" };
+  return { status: "in_progress" };
+}
 
 export interface FalFlux2Options {
   apiKey: string;
@@ -65,6 +81,7 @@ export class FalFlux2Image implements ImageProvider {
             pollInterval: 3000,
             timeout: 300_000,
             logs: false,
+            onQueueUpdate: (status) => opts.onStatus?.(queueUpdate(status)),
           });
         } catch (err) {
           throw this.wrap(err);
@@ -91,6 +108,8 @@ export class FalFlux2Image implements ImageProvider {
       model: endpoint,
       latencyMs: Date.now() - started,
       costUsd: this.estimate(opts.width, opts.height, refs.length),
+      costSource: "CALCULATED_FROM_USAGE",
+      requestId: result.requestId ?? null,
     };
   }
 

@@ -47,18 +47,42 @@ voice). The example brands ship with a placeholder.
 The finished file is `runs/<brand>/<run_id>/final.mp4`, next to `report.md` (what was spent, on
 what, and why each creative decision was made), `decisions.jsonl` and every stage's artifact.
 
+## Studio (web UI)
+
+```bash
+pnpm install          # installs the pipeline and the studio workspace (studio/)
+pnpm studio           # API on http://127.0.0.1:4747 + UI on http://localhost:3000
+```
+
+The studio is a local, single-user production desk over the same pipeline, SQLite index and
+`runs/` artifacts: dashboard with the brand's wallet and daily/48-hour budgets, a Create Video
+form (the Creative Director, Storyboard artist and Router decide shots, cameras and models), a
+storyboard/preflight review with the estimated cost before any media is generated, keyframe
+approval with per-shot regeneration and version history, per-shot animation, live render
+progress, the finished 720×1280 video with the full cost breakdown, run history, a product
+catalog with reference photos (`brands/<id>/products/<pid>/`), a brand-direction editor that
+saves versioned `brand.yaml` files, budget settings and provider health. Every button that can
+spend money shows its estimated incremental cost first; every amount is labelled
+provider-reported, calculated from usage, or estimated. Runs started from the studio pin the
+brand profile they were created with (`brand.snapshot.json`), so provenance never changes
+underneath a run. See `docs/adr/0005-studio.md`.
+
+Wallet defaults come from `brand.yaml → budget.wallet` the first time the studio sees a brand
+(Bachalogy: ₹4,000 wallet, ₹500/day, ₹900/48 h); edit them afterwards under Budget & Usage.
+Provider costs are recorded in USD and shown in INR with a rate you set in Settings.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `pnpm cli run --brand <id> --topic <text> [--goal <text>]` | Produce a video |
+| `pnpm cli run --brand <id> --topic <text> [--goal <text>] [--product <id>]` | Produce a video (optionally for a catalog product) |
 | `  --dry-run` | Plan, estimate and stop before the first paid media generation |
 | `  --approve-keyframes` | Pause after keyframes so you can approve or reject them |
 | `  --budget <usd>` | Override the absolute hard cap (default from the brand, $2.50) |
 | `  --ai-video-seconds <n>` | Override the soft target of generated video seconds (default 15) |
 | `  --until <stage>` | Stop after a stage (`brief`, `research`, `script`, `voice`, `storyboard`, `continuity`, `route`, `keyframes`, `animate`, `audio`, `edit`, `render`, `final_qc`, `report`) |
 | `  --mock` | Offline mock providers (also `PROVIDER_MODE=mock`) |
-| `pnpm cli resume <run_id> [--budget <usd>]` | Continue after a failure, a budget stop or an approval pause |
+| `pnpm cli resume <run_id> [--budget <usd>] [--pin-brand]` | Continue after a failure, a budget stop or an approval pause (`--pin-brand` keeps the brand snapshot) |
 | `pnpm cli rerun <run_id> --from <stage>` | Re-run from a stage; shots whose inputs did not change are reused |
 | `pnpm cli approve <run_id> [--reject shot_03:"note"]` | Approve pending keyframes, reject some with a note |
 | `pnpm cli inspect <run_id>` | Stage table, shots, spend |
@@ -107,20 +131,22 @@ edit defaults and budget. Reference images and logos go under `brands/<id>/asset
 - `src/pipeline/stages/` the 14 stages · `src/agents/` LLM callers · `src/router/` asset router
 - `src/providers/` vendor adapters behind capability interfaces · `src/remotion/` composition
 - `src/qc/` deterministic checks · `src/cost/` pricing, ledger, report
-- `runs/` artifacts (source of truth) · `data/pipeline.db` index and ledger
+- `src/budget/` brand wallet + daily/48 h ledger · `src/studio/` API server, job runner, services · `studio/` Next.js app
+- `runs/` artifacts (source of truth) · `data/pipeline.db` index, ledger, jobs, budget
 
 ## Docs
 
 - `docs/architecture.md` — stages and layout
-- `docs/adr/` — orchestration (why not LangGraph), state and idempotency, model strategy, conditional editing
+- `docs/adr/` — orchestration (why not LangGraph), state and idempotency, model strategy, conditional editing, the studio
 - `docs/ROADMAP.md` — what this MVP deliberately leaves for later
 - `docs/THIRD_PARTY_NOTICES.md` — adapted MIT code (OpenReels)
 
 ## Development
 
 ```bash
-pnpm test        # unit + offline end-to-end (renders real files with mock providers)
-pnpm typecheck
+pnpm test              # unit + offline end-to-end (renders real files with mock providers)
+pnpm typecheck         # pipeline
+pnpm typecheck:studio  # Next.js app
 pnpm lint
 ```
 

@@ -78,5 +78,12 @@ export const ShotRecordSchema = z.object({
     .nullable(),
   cost_usd: z.number(),
   updated_at: z.string(),
+  /** Operator overrides from the studio: a hand-edited prompt (skips the prompter) or feedback. */
+  overrides: z
+    .object({
+      prompt: z.string().nullable().default(null),
+      instruction: z.string().nullable().default(null),
+    })
+    .optional(),
 });
 export type ShotRecord = z.infer<typeof ShotRecordSchema>;

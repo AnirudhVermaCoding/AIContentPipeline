@@ -1,0 +1,26 @@
+id: walking-puppy
+name: Walking Puppy
+category: children's toy
+description: A soft-touch toy puppy that walks forward with a gentle waddle, wags its tail and stops when a child claps or picks it up.
+entity_id: walking_puppy
+key_benefits:
+  - Encourages toddlers to crawl and walk after it
+  - Soft, rounded and safe for small hands
+  - No screens, no sound effects that startle
+allowed_claims:
+  - Suitable for ages 1 and up
+forbidden_claims:
+  - Replaces a real pet
+static_features: a small cream-coloured plush-look puppy with floppy caramel ears, a black button nose, a short curled tail and four stubby legs, sitting or waddling upright
+dynamic_defaults: clean fur, waddling across a living-room rug
+must_preserve:
+  - shape
+  - colour (cream body, caramel ears)
+  - face (button nose, embroidered eyes)
+  - materials (soft plush look)
+  - functionality (walks and wags)
+references: []
+reference_policy:
+  min: 2
+  hard: false
+tags: [puppy, toddler]

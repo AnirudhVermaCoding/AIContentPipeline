@@ -1,0 +1,30 @@
+id: domino-train
+name: Domino Laying Train
+category: children's toy
+description: A palm-sized battery-powered toy train that drives forward on its own and lays a neat line of colourful dominoes behind it, so a child can set up a long run in seconds and knock it all down.
+entity_id: domino_train
+key_benefits:
+  - Sets up dominoes for the child so the fun part (knocking them down) comes fast
+  - Teaches cause and effect and patience through play
+  - Works on any smooth floor or table
+allowed_claims:
+  - Suitable for ages 3 and up
+  - Comes with 60 colourful dominoes
+forbidden_claims:
+  - Teaches physics
+  - Improves fine motor skills faster than other toys
+static_features: a compact toy train with a rounded sky-blue engine, a yellow cab with a round window, four black wheels with white hubs, and a translucent hopper on top filled with small colourful dominoes that drop out of a slot at the back
+dynamic_defaults: clean, driving slowly across a wooden floor with a fresh line of dominoes behind it
+must_preserve:
+  - shape
+  - colour
+  - wheel layout
+  - accessories (domino hopper and dominoes)
+  - materials (matte plastic)
+  - logo placement
+  - functionality (lays dominoes from the back slot)
+references: []
+reference_policy:
+  min: 2
+  hard: false
+tags: [train, dominoes, hero]

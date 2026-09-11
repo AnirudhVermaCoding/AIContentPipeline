@@ -19,6 +19,8 @@ export const BrandEntity = z.object({
     .default("")
     .describe("Typical state/clothing unless the brief changes it"),
   reference_images: z.array(z.string()).default([]).describe("Paths relative to the brand folder"),
+  /** Subset of reference_images that must be present whenever the entity is generated. */
+  identity_refs: z.array(z.string()).default([]),
   always_present: z.boolean().default(false),
 });
 export type BrandEntity = z.infer<typeof BrandEntity>;
@@ -159,6 +161,19 @@ export const BrandProfileSchema = z.object({
     ai_video_seconds_target: z.number().default(15),
     keyframe_attempts: z.number().int().default(3),
     clip_seconds: z.object({ min: z.number(), max: z.number() }).default({ min: 5, max: 10 }),
+    /**
+     * Studio wallet defaults, seeded into the budget ledger the first time the studio sees the
+     * brand (edit them afterwards under Budget & Usage). Amounts are in `currency`.
+     */
+    wallet: z
+      .object({
+        currency: z.string().default("INR"),
+        amount: z.number().nullable().default(null),
+        daily: z.number().nullable().default(null),
+        two_day: z.number().nullable().default(null),
+        timezone: z.string().default("UTC"),
+      })
+      .optional(),
   }),
   providers: z
     .object({

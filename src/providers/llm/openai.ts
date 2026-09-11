@@ -130,15 +130,23 @@ export class OpenAiLlm implements LlmProvider {
       throw this.wrap(err);
     });
     add(result.usage as Usage);
+    const requestId = (result.response as { id?: string } | undefined)?.id ?? null;
+    // The model was billed for this response even if we reject it below.
+    const charged = {
+      costUsd: llmCost(this.id, this.model, usage),
+      usage: { ...usage },
+      requestId,
+    };
     const data = result.output as T | undefined;
     if (data == null) {
-      throw new ValidationError(`${label}: model returned no structured output`, []);
+      throw new ValidationError(`${label}: model returned no structured output`, [], { charged });
     }
     const parsed = opts.schema.safeParse(data);
     if (!parsed.success) {
       throw new ValidationError(
         `${label}: structured output failed validation`,
         parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+        { charged },
       );
     }
     return {
@@ -147,7 +155,9 @@ export class OpenAiLlm implements LlmProvider {
       provider: this.id,
       model: this.model,
       latencyMs: Date.now() - started,
-      costUsd: llmCost(this.id, this.model, usage),
+      costUsd: charged.costUsd,
+      costSource: "CALCULATED_FROM_USAGE",
+      requestId,
     };
   }
 

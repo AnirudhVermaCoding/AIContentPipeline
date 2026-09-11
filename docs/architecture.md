@@ -40,7 +40,10 @@ produced (and optionally approved) before any paid animation.
 - `src/remotion` — the `BrandVideo` composition driven by EDL props.
 - `src/render` — bundle cache and render dispatch.
 - `src/qc` — deterministic checks (storyboard risk, keyframe, final); vision judges slot in later.
-- `src/cli` — `brands | run | resume | rerun | approve | inspect | report`.
+- `src/cli` — `brands | run | resume | rerun | approve | inspect | report | runs | music`.
+- `src/budget` — brand-level wallet, daily and 48-hour limits with transactional holds (studio + CLI).
+- `src/studio` — the studio API (Hono), job supervisor/runner, services; `studio/` — the Next.js UI.
+- `brands/<id>/products/<pid>/product.yaml` — product catalog with reference photos merged into a run's profile.
 - `runs/<brand>/<run_id>/` — artifacts (source of truth); `data/pipeline.db` — index + ledger.
 
 See the ADRs in `docs/adr/` for the orchestration, state, model and editing decisions, and

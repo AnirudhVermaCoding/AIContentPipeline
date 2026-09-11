@@ -40,6 +40,14 @@ export const RunOptions = z.object({
   ai_video_seconds_override: z.number().nullable(),
   until: z.string().nullable().describe("Stop after this stage id"),
   dry_run: z.boolean().describe("Stop before the first paid media generation"),
+  /**
+   * Which brand profile a resumed run uses: the live brands/<id>/brand.yaml (CLI default, edits
+   * invalidate downstream stages) or the snapshot written when the run was created (studio
+   * default, so provenance never changes underneath a run).
+   */
+  brand_source: z.enum(["live", "snapshot"]).optional(),
+  /** Keep continuity entries of unchanged shots verbatim on re-run so their shot hashes survive. */
+  continuity_merge: z.enum(["preserve_unchanged", "full"]).optional(),
 });
 export type RunOptions = z.infer<typeof RunOptions>;
 
@@ -58,6 +66,11 @@ export const RunManifestSchema = z.object({
   brand_config_version: z.string(),
   topic: z.string(),
   goal: z.string().nullable(),
+  /** Product from the brand's catalog this video is about (null for topic-only runs). */
+  product_id: z.string().nullable().optional(),
+  /** Human title shown in the studio; defaults to the topic. */
+  title: z.string().nullable().optional(),
+  created_by: z.enum(["cli", "studio", "test"]).optional(),
   created_at: z.string(),
   updated_at: z.string(),
   status: RunStatus,
@@ -73,5 +86,7 @@ export const RunManifestSchema = z.object({
     reserved_usd: z.number(),
   }),
   last_error: z.string().nullable(),
+  /** Why a run is `stopped` when the operator paused or cancelled it (null otherwise). */
+  stop_reason: z.enum(["paused", "cancelled", "dry_run", "until"]).nullable().optional(),
 });
 export type RunManifest = z.infer<typeof RunManifestSchema>;

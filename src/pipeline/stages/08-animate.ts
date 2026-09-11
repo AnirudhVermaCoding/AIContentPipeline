@@ -4,19 +4,50 @@ import pLimit from "p-limit";
 import { runMotionPrompter } from "../../agents/motion-prompter.js";
 import { promptVersions } from "../../agents/prompts.js";
 import { probeMedia } from "../../media/probe.js";
+import type { GenerationStatusUpdate } from "../../providers/types.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
 import { ContinuityBibleSchema } from "../../schema/continuity.js";
 import { RoutingPlanSchema } from "../../schema/routing.js";
 import type { ShotRecord } from "../../schema/shot.js";
 import type { Shot } from "../../schema/storyboard.js";
 import { StoryboardArtifactSchema } from "../../schema/storyboard.js";
-import { BudgetExceededError, errorMessage, ProviderError } from "../../util/errors.js";
+import {
+  BudgetExceededError,
+  errorMessage,
+  ProviderError,
+  RunInterruptedError,
+} from "../../util/errors.js";
+import { nowIso, writeJsonAtomic } from "../../util/fs.js";
 import { paidCall } from "../paid.js";
 import type { RunContext } from "../run.js";
-import { computeShotHash, loadOrResetShot, saveShotRecord, shotDir, summarize } from "../shots.js";
+import {
+  computeShotHash,
+  loadOrResetShot,
+  nextAttemptNumber,
+  saveShotRecord,
+  shotDir,
+  summarize,
+} from "../shots.js";
 import type { StageDef } from "../stage.js";
 
-async function finalizeStill(run: RunContext, record: ShotRecord): Promise<void> {
+/** Live per-shot generation state for the studio (what the vendor reports, nothing invented). */
+export interface ShotProgress {
+  kind: "video";
+  attempt: number;
+  status: GenerationStatusUpdate["status"] | "failed";
+  queue_position: number | null;
+  message: string | null;
+  started_at: string;
+  updated_at: string;
+}
+
+export const SHOT_PROGRESS_FILE = "progress.json";
+
+function writeShotProgress(run: RunContext, shotId: string, p: ShotProgress): void {
+  writeJsonAtomic(path.join(shotDir(run, shotId), SHOT_PROGRESS_FILE), p);
+}
+
+export async function finalizeStill(run: RunContext, record: ShotRecord): Promise<void> {
   if (!record.keyframe) throw new Error(`${record.shot_id}: no keyframe to finalise`);
   record.final = {
     path: record.keyframe.path,
@@ -44,7 +75,8 @@ async function animate(
 ): Promise<void> {
   if (!record.keyframe) throw new Error(`${shot.id}: cannot animate without a keyframe`);
   const keyframeAbs = run.abs(record.keyframe.path);
-  const attempt = record.attempts.filter((a) => a.kind === "video").length + 1;
+  const attempt = nextAttemptNumber(run, shot.id, "video", record);
+  const feedback = record.overrides?.instruction ?? null;
   const promptRes = await runMotionPrompter(
     run,
     stageId,
@@ -52,9 +84,21 @@ async function animate(
     continuity,
     seconds,
     record.keyframe.prompt,
+    feedback,
   );
   record.cost_usd += promptRes.costUsd;
   const started = Date.now();
+  const startedIso = nowIso();
+  const progress: ShotProgress = {
+    kind: "video",
+    attempt,
+    status: "queued",
+    queue_position: null,
+    message: null,
+    started_at: startedIso,
+    updated_at: startedIso,
+  };
+  writeShotProgress(run, shot.id, progress);
   try {
     const res = await paidCall(
       run,
@@ -71,6 +115,7 @@ async function animate(
         sourceAssets: [record.keyframe.path],
         durationS: seconds,
         resolution: run.providers.video.resolution,
+        attempt,
       },
       () =>
         run.providers.video.generate({
@@ -78,6 +123,13 @@ async function animate(
           prompt: promptRes.data.prompt,
           durationSeconds: seconds,
           label: `video:${shot.id}`,
+          onStatus: (u) => {
+            progress.status = u.status;
+            progress.queue_position = u.queuePosition ?? null;
+            progress.message = u.message ?? null;
+            progress.updated_at = nowIso();
+            writeShotProgress(run, shot.id, progress);
+          },
         }),
     );
     const file = path.join(shotDir(run, shot.id), `video_v${attempt}.mp4`);
@@ -92,7 +144,7 @@ async function animate(
       prompt: promptRes.data.prompt,
       prompt_version: promptRes.promptVersion,
       refs: [record.keyframe.path],
-      params: { duration: seconds, resolution: res.resolution },
+      params: { duration: seconds, resolution: res.resolution, feedback },
       latency_ms: res.latencyMs,
       cost_usd: res.costUsd,
       status: "ok",
@@ -114,7 +166,11 @@ async function animate(
     record.video = { path: run.rel(file), prompt: promptRes.data.prompt, meta };
     record.final = { path: run.rel(file), kind: "video", meta };
     record.status = "done";
+    record.overrides = { prompt: record.overrides?.prompt ?? null, instruction: null };
     saveShotRecord(run, record);
+    progress.status = "completed";
+    progress.updated_at = nowIso();
+    writeShotProgress(run, shot.id, progress);
     run.events.info(
       stageId,
       `clip ready: ${meta.duration_s.toFixed(1)}s ${meta.width}x${meta.height}, $${res.costUsd.toFixed(3)}`,
@@ -122,6 +178,11 @@ async function animate(
       shot.id,
     );
   } catch (err) {
+    if (err instanceof RunInterruptedError) throw err;
+    progress.status = "failed";
+    progress.message = errorMessage(err);
+    progress.updated_at = nowIso();
+    writeShotProgress(run, shot.id, progress);
     record.attempts.push({
       kind: "video",
       attempt,
@@ -200,6 +261,8 @@ export const animateStage: StageDef = {
           records.push(record);
           return;
         }
+        run.control?.checkpoint(`animate ${shot.id}`);
+        run.control?.progress?.({ stage: this.id, shot: shot.id });
         if (route.source === "GEN_VIDEO" && route.video_seconds) {
           const allowStill = brief.motion_promise.still_fallback_allowed || !shot.hero_moment;
           await animate(run, this.id, shot, record, continuity, route.video_seconds, allowStill);
@@ -213,7 +276,8 @@ export const animateStage: StageDef = {
     const failed = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
     if (failed.length) {
       const budget = failed.find((f) => f.reason instanceof BudgetExceededError);
-      throw budget ? budget.reason : failed[0]?.reason;
+      const interrupted = failed.find((f) => f.reason instanceof RunInterruptedError);
+      throw budget ? budget.reason : interrupted ? interrupted.reason : failed[0]?.reason;
     }
     records.sort((a, b) => a.shot_id.localeCompare(b.shot_id));
     ctx.writeOutput({ shots: summarize(records) });

@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { promptVersions } from "../agents/prompts.js";
 import type { ContinuityBible } from "../schema/continuity.js";
@@ -8,6 +9,7 @@ import { ensureDir, exists, nowIso, readJson, shortHash, writeJsonAtomic } from 
 import type { RunContext } from "./run.js";
 
 export const SHOTS_DIR = "shots";
+export const SHOT_HISTORY_DIR = "history";
 
 export function shotDir(run: RunContext, shotId: string): string {
   return ensureDir(path.join(run.runDir, SHOTS_DIR, shotId));
@@ -71,7 +73,27 @@ export function saveShotRecord(run: RunContext, record: ShotRecord): void {
   run.repos.upsertShot(run.runId, record);
 }
 
-/** Load a record if it belongs to the current shot hash; otherwise start a fresh one. */
+/** Records superseded by a hash change, kept so every paid attempt stays inspectable. */
+export function listShotHistory(run: RunContext, shotId: string): ShotRecord[] {
+  const dir = path.join(shotDir(run, shotId), SHOT_HISTORY_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .map((f) => readJson(path.join(dir, f), ShotRecordSchema));
+}
+
+function archiveShotRecord(run: RunContext, record: ShotRecord): void {
+  const dir = ensureDir(path.join(shotDir(run, record.shot_id), SHOT_HISTORY_DIR));
+  const stamp = record.updated_at.replace(/[:.]/g, "-");
+  writeJsonAtomic(path.join(dir, `${stamp}-${record.shot_hash}.json`), record);
+}
+
+/**
+ * Load a record if it belongs to the current shot hash; otherwise archive it and start a fresh
+ * one. Version numbers keep counting from the files on disk, so nothing is ever overwritten.
+ */
 export function loadOrResetShot(
   run: RunContext,
   shotId: string,
@@ -82,8 +104,38 @@ export function loadOrResetShot(
   if (existing && existing.shot_hash === shotHash) return { record: existing, reused: true };
   if (existing) {
     run.events.info(null, `${shotId}: inputs changed, re-producing`, undefined, shotId);
+    archiveShotRecord(run, existing);
   }
   return { record: newShotRecord(shotId, shotHash, source), reused: false };
+}
+
+const VERSION_FILE: Record<"keyframe" | "video", RegExp> = {
+  keyframe: /^keyframe_v(\d+)\.png$/,
+  video: /^video_v(\d+)\.mp4$/,
+};
+
+/**
+ * Next version number for a shot's keyframe or clip: one past the highest version present on
+ * disk or recorded in any attempt (current or archived), never a number already used.
+ */
+export function nextAttemptNumber(
+  run: RunContext,
+  shotId: string,
+  kind: "keyframe" | "video",
+  record?: ShotRecord | null,
+): number {
+  const dir = shotDir(run, shotId);
+  let max = 0;
+  for (const f of fs.readdirSync(dir)) {
+    const m = VERSION_FILE[kind].exec(f);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  const records = [record ?? loadShotRecord(run, shotId), ...listShotHistory(run, shotId)];
+  for (const r of records) {
+    if (!r) continue;
+    for (const a of r.attempts) if (a.kind === kind) max = Math.max(max, a.attempt);
+  }
+  return max + 1;
 }
 
 export interface ShotSummary {

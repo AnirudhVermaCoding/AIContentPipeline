@@ -14,6 +14,7 @@ export async function runMotionPrompter(
   continuity: ContinuityBible,
   clipSeconds: number,
   keyframePrompt: string,
+  feedback: string | null = null,
 ): Promise<AgentResult<MotionPrompt>> {
   const per = continuity.per_shot.find((p) => p.shot_id === shot.id);
   const userMessage = `# Motion prompt for ${shot.id} (${clipSeconds} s clip)
@@ -24,7 +25,7 @@ Camera: ${shot.movement} (${shot.shot_size}, ${shot.lens})
 Intent: ${shot.shot_intent}
 Identity blocks: ${per?.identity_blocks.join(" | ") || "none"}
 Realism lock: ${continuity.locks.realism}
-
+${feedback ? `\n## Feedback from the previous clip\n${feedback}\n` : ""}
 Return one motion prompt.`;
   return callAgent(run, {
     name: "motion-prompter",

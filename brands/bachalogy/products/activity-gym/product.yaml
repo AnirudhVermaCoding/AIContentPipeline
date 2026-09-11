@@ -1,0 +1,26 @@
+id: activity-gym
+name: Activity Gym
+category: baby play gym
+description: A wooden-arch baby play gym with hanging felt shapes, a soft quilted mat and a small mirror, for tummy time and reaching play.
+entity_id: activity_gym
+key_benefits:
+  - Grows from newborn tummy time to sitting play
+  - Natural wood and washable fabrics
+  - Folds flat for small homes
+allowed_claims:
+  - Suitable from birth
+  - Made from FSC-certified beech wood
+forbidden_claims:
+  - Accelerates development milestones
+static_features: two crossed light-beech wooden arches over a round quilted mat in soft mustard and cream, with three hanging felt toys (a sun, a cloud and a leaf) and a small round baby-safe mirror
+dynamic_defaults: set up on a wooden floor by a window
+must_preserve:
+  - shape (crossed arches)
+  - colour (natural beech, mustard and cream)
+  - hanging toys (sun, cloud, leaf)
+  - materials (wood, felt, quilted cotton)
+references: []
+reference_policy:
+  min: 2
+  hard: false
+tags: [baby, gym]

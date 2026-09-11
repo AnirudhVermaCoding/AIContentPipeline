@@ -10,3 +10,7 @@ data/
 .remotion/
 coverage/
 test/tmp/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+brands/*/history/

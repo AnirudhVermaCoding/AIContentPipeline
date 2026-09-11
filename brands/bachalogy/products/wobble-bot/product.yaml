@@ -1,0 +1,29 @@
+id: wobble-bot
+name: Wobble Bot
+category: children's toy
+description: A palm-sized rounded robot toy in matte sky-blue plastic with one big amber eye, stubby articulated arms and a weighted base so it wobbles upright when knocked over. It comes with wooden-look tiles a child arranges to make it roll a path.
+entity_id: wobble_bot
+key_benefits:
+  - Open-ended play that changes as the child grows
+  - Chunky, safe parts for small hands
+  - No screens, no batteries required
+allowed_claims:
+  - Suitable for ages 3 and up
+  - Made from BPA-free plastic
+forbidden_claims:
+  - Makes your child smarter
+  - Improves IQ or test scores
+  - Recommended by pediatricians
+static_features: palm-sized rounded robot toy, matte sky-blue (#4FA3E0) plastic body, one large round amber eye, two stubby articulated arms, weighted rounded base, soft matte finish, no visible text or logos on the body
+dynamic_defaults: clean, standing upright on wooden-look path tiles
+must_preserve:
+  - shape
+  - colour (sky blue #4FA3E0)
+  - single amber eye
+  - materials (matte plastic)
+  - accessories (wooden-look path tiles)
+references: []
+reference_policy:
+  min: 2
+  hard: false
+tags: [robot, hero]
