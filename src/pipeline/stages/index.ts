@@ -6,8 +6,9 @@ import { voiceStage } from "./03-voice.js";
 import { storyboardStage } from "./04-storyboard.js";
 import { continuityStage } from "./05-continuity.js";
 import { routeStage } from "./06-route.js";
+import { keyframesStage } from "./07-keyframes.js";
+import { animateStage } from "./08-animate.js";
 
-/** Ordered pipeline. Later commits append keyframes, animate, audio, edit, render, final_qc, report. */
 export const PLANNING_STAGES: StageDef[] = [
   briefStage,
   researchStage,
@@ -18,7 +19,10 @@ export const PLANNING_STAGES: StageDef[] = [
   routeStage,
 ];
 
-export const ALL_STAGES: StageDef[] = [...PLANNING_STAGES];
+export const PRODUCTION_STAGES: StageDef[] = [keyframesStage, animateStage];
+
+/** Ordered pipeline. Later commits append audio, edit, render, final_qc, report. */
+export const ALL_STAGES: StageDef[] = [...PLANNING_STAGES, ...PRODUCTION_STAGES];
 
 export function stageById(id: string): StageDef | undefined {
   return ALL_STAGES.find((s) => s.id === id);

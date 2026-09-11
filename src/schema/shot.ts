@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AssetSource } from "./common.js";
+import { QcCheck } from "./qc.js";
 
 export const AssetMeta = z.object({
   duration_s: z.number(),
@@ -24,7 +25,7 @@ export const ShotAttempt = z.object({
   status: z.enum(["ok", "failed", "rejected"]),
   error: z.string().nullable(),
   path: z.string().nullable(),
-  checks: z.array(z.object({ id: z.string(), pass: z.boolean(), detail: z.string() })),
+  checks: z.array(QcCheck),
 });
 export type ShotAttempt = z.infer<typeof ShotAttempt>;
 
