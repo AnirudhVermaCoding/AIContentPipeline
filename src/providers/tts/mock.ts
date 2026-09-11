@@ -5,7 +5,7 @@ import { ttsCost } from "../../config/pricing.js";
 import { makeToneWav } from "../../media/ffmpeg.js";
 import type { TtsProvider, TtsResult, TtsSynthesizeOptions } from "../types.js";
 
-/** Offline TTS: a low tone whose length follows the text (≈ 15 characters per second). */
+/** Offline TTS: a low tone whose length follows the text (≈ 12.5 characters per second). */
 export class MockTts implements TtsProvider {
   readonly id: string;
   readonly model: string;
@@ -21,7 +21,7 @@ export class MockTts implements TtsProvider {
 
   async synthesize(opts: TtsSynthesizeOptions): Promise<TtsResult> {
     const started = Date.now();
-    const seconds = Math.max(0.6, opts.text.length / 15 / (opts.speed ?? 1));
+    const seconds = Math.max(0.6, opts.text.length / 12.5 / (opts.speed ?? 1));
     const tmp = path.join(
       os.tmpdir(),
       `aicp-tts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.wav`,

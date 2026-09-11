@@ -167,3 +167,24 @@ export async function audioEnvelope(file: string, windowS = 0.1): Promise<number
   }
   return values;
 }
+
+/** Normalise the audio of a finished file to -14 LUFS (video copied) and add faststart. */
+export async function normalizeAudio(input: string, out: string): Promise<string> {
+  return withAtomicOutput(out, async (tmp) => {
+    await ffmpeg([
+      "-i",
+      input,
+      "-c:v",
+      "copy",
+      "-af",
+      "loudnorm=I=-14:TP=-1.5:LRA=11",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      tmp,
+    ]);
+  });
+}

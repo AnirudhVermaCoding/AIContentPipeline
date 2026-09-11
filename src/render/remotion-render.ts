@@ -102,6 +102,7 @@ export async function renderWithRemotion(
     ...(exe ? { browserExecutable: exe } : {}),
   });
   const durationInFrames = Math.max(1, Math.round(edl.total_duration_s * edl.output.fps));
+  let lastPct = -1;
   log?.(`rendering ${durationInFrames} frames at ${edl.output.width}x${edl.output.height}`);
   await renderMedia({
     composition: {
@@ -120,8 +121,11 @@ export async function renderWithRemotion(
     chromeMode: chromeMode(),
     chromiumOptions: { gl: "swangle" },
     onProgress: ({ progress }) => {
-      const pct = Math.round(progress * 100);
-      if (pct % 25 === 0) log?.(`render ${pct}%`);
+      const pct = Math.floor(progress * 4) * 25;
+      if (pct > lastPct) {
+        lastPct = pct;
+        log?.(`render ${pct}%`);
+      }
     },
   });
   // Per-run assets are not needed in the bundle after the render.

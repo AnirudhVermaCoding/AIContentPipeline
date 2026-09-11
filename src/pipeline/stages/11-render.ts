@@ -1,4 +1,6 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
+import { normalizeAudio } from "../../media/ffmpeg.js";
 import { finishWithFfmpeg } from "../../media/finish.js";
 import { probeMedia } from "../../media/probe.js";
 import { renderWithRemotion } from "../../render/remotion-render.js";
@@ -22,7 +24,12 @@ export const renderStage: StageDef = {
       await finishWithFfmpeg(run, edl, out);
     } else {
       run.events.info(this.id, `rendering with Remotion (${edl.mode})`);
-      await renderWithRemotion(run, edl, out, (m) => run.events.info(this.id, m));
+      const raw = path.join(ctx.stageDir, "render_raw.mp4");
+      await renderWithRemotion(run, edl, raw, (m) => run.events.info(this.id, m));
+      const hasAudio = !!(edl.audio.voice_path || edl.audio.music_path);
+      if (hasAudio) await normalizeAudio(raw, out);
+      else fs.copyFileSync(raw, out);
+      fs.unlinkSync(raw);
     }
     const meta = await probeMedia(out);
     ctx.writeOutput({

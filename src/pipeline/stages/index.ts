@@ -11,6 +11,8 @@ import { animateStage } from "./08-animate.js";
 import { audioStage } from "./09-audio.js";
 import { editStage } from "./10-edit.js";
 import { renderStage } from "./11-render.js";
+import { finalQcStage } from "./12-final-qc.js";
+import { reportStage } from "./13-report.js";
 
 export const PLANNING_STAGES: StageDef[] = [
   briefStage,
@@ -24,9 +26,15 @@ export const PLANNING_STAGES: StageDef[] = [
 
 export const PRODUCTION_STAGES: StageDef[] = [keyframesStage, animateStage];
 
-export const POST_STAGES: StageDef[] = [audioStage, editStage, renderStage];
+export const POST_STAGES: StageDef[] = [
+  audioStage,
+  editStage,
+  renderStage,
+  finalQcStage,
+  reportStage,
+];
 
-/** Ordered pipeline. Final QC and report are appended in the next commit. */
+/** The complete ordered pipeline. */
 export const ALL_STAGES: StageDef[] = [...PLANNING_STAGES, ...PRODUCTION_STAGES, ...POST_STAGES];
 
 export function stageById(id: string): StageDef | undefined {

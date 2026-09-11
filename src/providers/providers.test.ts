@@ -70,8 +70,8 @@ describe("provider registry (mock mode)", () => {
     const wav = path.join(tmp, "line.wav");
     fs.writeFileSync(wav, r.audio);
     const meta = await probeMedia(wav);
-    expect(meta.duration_s).toBeGreaterThan(2.8);
-    expect(meta.duration_s).toBeLessThan(3.3);
+    expect(meta.duration_s).toBeGreaterThan(3.3);
+    expect(meta.duration_s).toBeLessThan(3.9);
     expect(r.costUsd).toBeCloseTo(45 * 50e-6, 8);
   });
 
