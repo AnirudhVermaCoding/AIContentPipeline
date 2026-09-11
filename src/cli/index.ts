@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { Command } from "commander";
 import { listBrandIds, loadBrand } from "../brand/loader.js";
 import { listProducts } from "../brand/products.js";
+import { BudgetLedger } from "../budget/ledger.js";
 import { loadEnv, providerMode } from "../config/env.js";
 import { buildReport, renderMarkdown } from "../cost/report.js";
 import { Repos } from "../db/repos.js";
@@ -17,8 +18,47 @@ import { loadShotRecord } from "../pipeline/shots.js";
 import { ALL_STAGES } from "../pipeline/stages/index.js";
 import { FinalQcReportSchema } from "../schema/qc.js";
 import { StoryboardArtifactSchema } from "../schema/storyboard.js";
+import { BudgetWindowError } from "../util/errors.js";
 
 loadEnv();
+
+/**
+ * Run the stages under the brand's wallet / daily / 48-hour rules, exactly like a studio job:
+ * hold the maximum exposure, release it to actual spend afterwards. A refused hold exits with
+ * the budget-conflict code and names the rule.
+ */
+async function runUnderBudget(run: RunContext, label: string): Promise<RunResult> {
+  const ledger = new BudgetLedger(openDb());
+  const hold = Math.max(0, run.manifest.cost.hard_cap_usd - run.budget.spentUsd);
+  let reservationId: number | null = null;
+  try {
+    reservationId = ledger.admit({
+      brandId: run.manifest.brand_id,
+      runId: run.runId,
+      jobId: null,
+      holdUsd: hold,
+      providerMode: run.options.provider_mode,
+      label,
+    }).reservationId;
+  } catch (err) {
+    if (err instanceof BudgetWindowError) {
+      console.log(`BUDGET_CONFLICT (${err.rule}): ${err.message}`);
+      console.log(
+        "Adjust the brand's wallet / daily / 48-hour limits in the studio (Budget & Usage) or wait for the window to pass.",
+      );
+      return process.exit(4);
+    }
+    throw err;
+  }
+  run.budgetHold = { reservationId };
+  let result: RunResult | null = null;
+  try {
+    result = await runStages(run, ALL_STAGES);
+    return result;
+  } finally {
+    ledger.release(reservationId, result?.status ?? "failed", run.budget.spentUsd);
+  }
+}
 
 const program = new Command();
 program
@@ -128,7 +168,7 @@ program
     console.log(
       `Run ${run.runId} for ${run.brand.profile.name} (${mode} providers, cap $${run.manifest.cost.hard_cap_usd.toFixed(2)})`,
     );
-    const result = await runStages(run, ALL_STAGES);
+    const result = await runUnderBudget(run, `cli run ${run.runId}`);
     exitFor(result, run);
   });
 
@@ -149,7 +189,7 @@ program
     const brandSource = opts.pinBrand ? "snapshot" : opts.adoptBrand ? "live" : undefined;
     const run = openRun(runId, { options: patch, quiet: opts.quiet, brandSource });
     attachProviders(run, run.options.provider_mode);
-    const result = await runStages(run, ALL_STAGES);
+    const result = await runUnderBudget(run, `cli resume ${runId}`);
     exitFor(result, run);
   });
 
@@ -163,7 +203,7 @@ program
     attachProviders(run, run.options.provider_mode);
     const reset = resetFrom(run, ALL_STAGES, opts.from);
     console.log(`Reset: ${reset.join(", ")}`);
-    const result = await runStages(run, ALL_STAGES);
+    const result = await runUnderBudget(run, `cli rerun ${runId}`);
     exitFor(result, run);
   });
 
