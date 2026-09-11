@@ -8,6 +8,7 @@ import { pricingIsStale } from "../config/pricing.js";
 import { buildReport, renderMarkdown } from "../cost/report.js";
 import { Repos } from "../db/repos.js";
 import { openDb } from "../db/sqlite.js";
+import { addTrack, loadMusicLibrary, musicDir } from "../media/music.js";
 import { createRun, openRun, type RunContext } from "../pipeline/run.js";
 import { type RunResult, resetFrom, runStages } from "../pipeline/runner.js";
 import { loadShotRecord, saveShotRecord } from "../pipeline/shots.js";
@@ -252,6 +253,46 @@ program
   .action((runId) => {
     const run = openRun(runId, { quiet: true });
     console.log(renderMarkdown(buildReport(run)));
+  });
+
+const music = program.command("music").description("Manage the royalty-free music library");
+music
+  .command("add <file>")
+  .description("Copy a track into assets/music, measure it and register it")
+  .option("--id <id>", "track id (defaults to the file name)")
+  .requiredOption("--tags <tags>", "comma-separated mood tags, e.g. warm,acoustic,ukulele")
+  .option("--energy <level>", "low | medium | high", "low")
+  .option("--license <text>", "licence, e.g. CC0")
+  .option("--source <url>", "where it came from")
+  .action(async (file, opts) => {
+    const energy = ["low", "medium", "high"].includes(opts.energy) ? opts.energy : "low";
+    const t = await addTrack({
+      file: path.resolve(file),
+      id: opts.id,
+      moodTags: String(opts.tags).split(","),
+      energy,
+      license: opts.license,
+      source: opts.source,
+    });
+    console.log(
+      `Added ${t.id} (${t.duration_s}s, ${t.energy}, tags: ${t.mood_tags.join(", ")}) to ${musicDir()}`,
+    );
+  });
+music
+  .command("list")
+  .description("List library tracks")
+  .action(() => {
+    const tracks = loadMusicLibrary();
+    if (!tracks.length) {
+      console.log(
+        `No tracks yet. Add one with: pnpm cli music add <file.mp3> --tags warm,acoustic --energy low`,
+      );
+      return;
+    }
+    for (const t of tracks)
+      console.log(
+        `${t.id.padEnd(24)} ${String(t.duration_s).padStart(6)}s  ${t.energy.padEnd(6)} ${t.mood_tags.join(", ")}${t.license ? `  [${t.license}]` : ""}`,
+      );
   });
 
 program

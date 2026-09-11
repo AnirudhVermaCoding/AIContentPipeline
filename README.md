@@ -79,6 +79,19 @@ prices (about 12–15 s of generated video, 6–9 keyframes, narration and the L
 
 Prices live in `src/config/pricing.ts` with an `asOf` date; the CLI warns when the table is stale.
 
+## Music
+
+No tracks are bundled. Add royalty-free tracks and the pipeline picks the best match for each brand's
+mood tags and energy, then ducks it under the narration:
+
+```bash
+pnpm cli music add ~/Downloads/warm-ukulele.mp3 --tags warm,acoustic,ukulele --energy low --license CC0
+pnpm cli music list
+```
+
+With an empty library a video simply has narration only (both example brands set `music.policy:
+optional`); set `music.policy: never` on a brand to skip music deliberately.
+
 ## Adding a brand
 
 Copy `brands/mindcode/brand.yaml` to `brands/<id>/brand.yaml`, set `id` to the folder name, and

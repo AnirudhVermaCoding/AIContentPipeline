@@ -66,3 +66,41 @@ export async function ensureMockBed(seconds = 70): Promise<string> {
   fs.renameSync(tmp, file);
   return file;
 }
+
+/** Copy a track into the library, measure it and register it in music.json. */
+export async function addTrack(opts: {
+  file: string;
+  id?: string;
+  moodTags: string[];
+  energy: "low" | "medium" | "high";
+  license?: string;
+  source?: string;
+}): Promise<MusicTrack> {
+  const { probeMedia } = await import("./probe.js");
+  if (!fs.existsSync(opts.file)) throw new Error(`No such file: ${opts.file}`);
+  const dir = ensureDir(musicDir());
+  const id = (opts.id ?? path.basename(opts.file, path.extname(opts.file)))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const target = path.join(dir, `${id}${path.extname(opts.file).toLowerCase() || ".mp3"}`);
+  if (path.resolve(target) !== path.resolve(opts.file)) fs.copyFileSync(opts.file, target);
+  const meta = await probeMedia(target);
+  const track: MusicTrack = {
+    id,
+    file: path.basename(target),
+    mood_tags: opts.moodTags.map((t) => t.trim().toLowerCase()).filter(Boolean),
+    energy: opts.energy,
+    duration_s: Math.round(meta.duration_s * 10) / 10,
+    ...(opts.license ? { license: opts.license } : {}),
+    ...(opts.source ? { source: opts.source } : {}),
+  };
+  const catalog = path.join(dir, "music.json");
+  const raw = fs.existsSync(catalog)
+    ? (JSON.parse(fs.readFileSync(catalog, "utf8")) as { tracks?: MusicTrack[] })
+    : {};
+  const tracks = (raw.tracks ?? []).filter((t) => t.id !== id);
+  tracks.push(track);
+  fs.writeFileSync(catalog, `${JSON.stringify({ tracks }, null, 2)}\n`);
+  return track;
+}
