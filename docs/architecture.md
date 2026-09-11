@@ -14,12 +14,12 @@ storage.
 04 storyboard   LLM, cuts to measured narration timing; deterministic slop-risk check → Storyboard (shot count decided by the story)
 05 continuity   Continuity Controller: entities, identity blocks, refs, locks          → ContinuityBible
 06 route        Asset Router within the seconds target, the motion promise and the cap → RoutingPlan
-07 keyframes    sequential: prompt → keyframe → checks → [WAITING_APPROVAL]           → shots/shot_NN/keyframe.png
+07 keyframes    sequential: prompt → keyframe → checks → [WAITING_APPROVAL]           → shots/shot_NN/keyframe_vN.png
 08 animate      parallel: image-to-video for GEN_VIDEO shots, stills for the rest      → shots/shot_NN/video.mp4
 09 audio        music choice, voice envelope, ducking profile                          → AudioPlan
 10 edit         Edit Decision: NONE | FINISH_ONLY | LIGHT | ASSEMBLY                   → EDL
 11 render       ffmpeg (NONE / FINISH_ONLY) or Remotion (LIGHT / ASSEMBLY)             → final.mp4
-12 final_qc     probe, loudness, safe zones, motion promise                            → FinalQcReport
+12 final_qc     probe, loudness, text policy, motion promise (silent-downgrade check)  → FinalQcReport
 13 report       ledger + decisions                                                     → report.json / report.md
 ```
 
@@ -39,8 +39,9 @@ produced (and optionally approved) before any paid animation.
 - `src/media` — ffmpeg wrappers, probing, loudness, envelope, finish path.
 - `src/remotion` — the `BrandVideo` composition driven by EDL props.
 - `src/render` — bundle cache and render dispatch.
-- `src/qc` — deterministic checks (storyboard risk, keyframe, final).
+- `src/qc` — deterministic checks (storyboard risk, keyframe, final); vision judges slot in later.
 - `src/cli` — `brands | run | resume | rerun | approve | inspect | report`.
 - `runs/<brand>/<run_id>/` — artifacts (source of truth); `data/pipeline.db` — index + ledger.
 
-See the ADRs in `docs/adr/` for the orchestration, state, model and editing decisions.
+See the ADRs in `docs/adr/` for the orchestration, state, model and editing decisions, and
+`docs/ROADMAP.md` for what this MVP defers.
