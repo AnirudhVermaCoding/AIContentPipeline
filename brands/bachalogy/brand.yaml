@@ -1,0 +1,163 @@
+id: bachalogy
+name: Bachalogy
+tagline: Toys that grow with the play
+
+audience:
+  primary: Parents of children aged 3–7 who want screen-free play that holds attention
+  secondary: Grandparents and gift-givers
+  age_range: parents 28–42
+  mindset: Tired, loving, a little guilty about screens; suspicious of "educational" marketing
+  pains:
+    - Toys that are abandoned after ten minutes
+    - Plastic clutter that nobody plays with
+    - Feeling judged for screen time
+  desires:
+    - Seeing their child absorbed in play on their own
+    - Small everyday wins with their kid
+    - Toys that feel well made and safe
+
+product:
+  name: Wobble Bot
+  category: children's toy
+  description: A palm-sized rounded robot toy in matte sky-blue plastic with one big amber eye, stubby articulated arms and a weighted base so it wobbles upright when knocked over. It comes with wooden-look tiles a child arranges to make it roll a path.
+  key_benefits:
+    - Open-ended play that changes as the child grows
+    - Chunky, safe parts for small hands
+    - No screens, no batteries required
+  allowed_claims:
+    - Suitable for ages 3 and up
+    - Made from BPA-free plastic
+  forbidden_claims:
+    - Makes your child smarter
+    - Improves IQ or test scores
+    - Recommended by pediatricians
+
+tone:
+  voice_adjectives: [warm, playful, plain-spoken, unhurried]
+  writing_style: Short sentences a tired parent would actually say. Observational, never salesy. Let the child's play do the talking.
+  humor: light
+  reading_level: everyday conversational
+  sample_lines:
+    - "She lined the tiles up wrong. Then she fixed it herself."
+    - "Twenty minutes. No screen. I checked twice."
+  avoid_phrases:
+    - unlock your child's potential
+    - game-changer
+    - STEM-powered
+
+emotions:
+  primary: [tenderness, delight, quiet pride]
+  secondary: [curiosity, calm]
+  avoid: [anxiety, competitiveness, FOMO]
+
+content_pillars:
+  - id: everyday_play
+    name: Everyday play moments
+    description: Small real moments of a child playing on their own terms
+    example_topics: ["first steps with the Wobble Bot", "rainy afternoon play"]
+  - id: grows_with_them
+    name: It grows with them
+    description: How the same toy is played with differently at 3, 5 and 7
+  - id: parent_relief
+    name: A minute for the parent
+    description: What a child absorbed in play gives a parent back
+
+visual:
+  style_summary: Real family homes with real light. Slightly cluttered rooms, wooden floors, morning window light, hands and toys in close-up, children mostly seen from behind, the side, or in soft focus. Film-like softness, never glossy or catalogue-perfect. The Wobble Bot is always the same object, always the same sky blue.
+  colors:
+    primary: "#4FA3E0"
+    secondary: "#F5E6C8"
+    accent: "#F2A93B"
+    background: "#FFF9F0"
+    text: "#2B2B2B"
+  fonts:
+    heading: Nunito
+    body: Nunito
+    source: google
+  camera_language:
+    shot_sizes: [close_up, medium_close, medium, insert]
+    movements: [static, handheld_subtle, slow_push_in]
+    lenses: [35mm, 50mm, 85mm]
+    framing_rules:
+      - Child at child height; the camera sits on the floor with them
+      - Faces of children are never the subject; hands, backs of heads and the toy are
+      - Leave breathing room; do not centre-crop the toy like a product shot
+  realism_rules:
+    - Natural window light with soft shadows, never studio-perfect
+    - "Real textures: wood grain, fabric, fingerprints on plastic"
+    - "Slight imperfection is good: a crumb on the table, a sock half off"
+    - Skin, hair and hands must look physically correct
+  lighting: soft directional morning window light, warm neutral
+  color_grade: gentle warm film look, lifted blacks, no heavy saturation
+  forbidden_styles:
+    - 3D render / CGI look
+    - glossy catalogue product photography
+    - neon or cyberpunk lighting
+    - cartoon or illustration
+
+pacing:
+  duration_s: { min: 28, max: 40 }
+  hold_bias: long
+  cuts_per_10s: { min: 1, max: 2 }
+  shot_count_hint: { min: 5, max: 8 }
+
+voice:
+  provider: cartesia
+  voice_id: "REPLACE_WITH_CARTESIA_VOICE_ID"
+  style: warm, unhurried, like a parent telling a friend
+  speed: 0.95
+  language: en
+  narration_policy: optional
+  line_gap_s: 0.45
+
+music:
+  policy: optional
+  mood_tags: [warm, acoustic, gentle, ukulele, piano]
+  energy: low
+  gain_db: -20
+
+text_policy:
+  captions: brand_hook_only
+  hook_style: one short line, lowercase, rounded type, never covering the child
+  max_words_on_screen: 5
+
+cta:
+  policy: soft
+  patterns:
+    - "Bachalogy. Toys that grow with the play."
+    - "See how they play at three, five and seven."
+  end_card: true
+  handle: "@bachalogy"
+
+entities:
+  - id: wobble_bot
+    kind: product
+    name: Wobble Bot
+    static_features: palm-sized rounded robot toy, matte sky-blue (#4FA3E0) plastic body, one large round amber eye, two stubby articulated arms, weighted rounded base, soft matte finish, no visible text or logos on the body
+    dynamic_defaults: clean, standing upright on wooden-look path tiles
+    always_present: true
+  - id: child
+    kind: character
+    name: the child
+    static_features: a child of about four with short dark curly hair, seen from behind or the side, small hands, never a clear frontal face
+    dynamic_defaults: mustard-yellow long-sleeve top, grey socks
+
+edit_defaults:
+  mode_bias: LIGHT
+  modes_allowed: [NONE, FINISH_ONLY, LIGHT, ASSEMBLY]
+  transitions_allowed: [cut]
+  effects_allowed: []
+  logo_placement: end_card
+  still_motion_amount: 0.25
+
+budget:
+  target_usd: 1.8
+  hard_cap_usd: 2.5
+  ai_video_seconds_target: 15
+  keyframe_attempts: 3
+
+forbidden:
+  styles: []
+  claims: ["\"educational\" as a guarantee", "any developmental milestone promise"]
+  words: [addictive, must-have]
+  visuals: [children's faces in sharp focus, screens or tablets, branded competitor toys]

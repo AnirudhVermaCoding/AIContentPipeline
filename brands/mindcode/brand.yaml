@@ -1,0 +1,162 @@
+id: mindcode
+name: Mindcode
+tagline: Understand the mind you live in
+
+audience:
+  primary: Curious adults 22–38 who read about psychology but never finish the book
+  secondary: Students of psychology and coaching
+  age_range: 22–38
+  mindset: Introspective, slightly overwhelmed, allergic to hustle culture and pop-psych clichés
+  pains:
+    - Knowing the name of a bias but not what to do about it
+    - Advice that sounds smart and changes nothing
+    - Feeling alone with their patterns
+  desires:
+    - A small, true insight they can use today
+    - Feeling understood without being diagnosed
+    - Calm, credible learning in five minutes a day
+
+product:
+  name: Mindcode
+  category: psychology-learning app
+  description: A daily five-minute app that teaches one psychological concept at a time through a short story, a question, and a tiny experiment to try in real life.
+  key_benefits:
+    - One concept a day, explained through a real situation
+    - Tiny real-life experiments instead of quizzes
+    - Grounded in published research, cited in-app
+  allowed_claims:
+    - Concepts are drawn from peer-reviewed psychology
+    - Five minutes a day
+  forbidden_claims:
+    - Cures anxiety or depression
+    - Replaces therapy
+    - Clinically proven
+
+tone:
+  voice_adjectives: [calm, precise, intimate, quietly confident]
+  writing_style: Second person, present tense. One idea, followed all the way through. Specific situations over abstractions. No exclamation marks.
+  humor: dry
+  reading_level: thoughtful adult, no jargon without a plain explanation
+  sample_lines:
+    - "You rehearsed the argument in the shower. You will never have it."
+    - "The brain does not store the day. It stores the peak and the end."
+  avoid_phrases:
+    - hack your brain
+    - level up
+    - here's the thing
+    - mind-blowing
+
+emotions:
+  primary: [recognition, calm curiosity, relief]
+  secondary: [gentle surprise]
+  avoid: [hype, urgency, shame]
+
+content_pillars:
+  - id: everyday_bias
+    name: Everyday biases
+    description: A bias or heuristic caught in the act in an ordinary moment
+    example_topics: ["why habits stick", "the peak-end rule at a dinner party"]
+  - id: emotion_mechanics
+    name: How feelings work
+    description: The mechanics behind a common emotional experience
+  - id: tiny_experiments
+    name: Tiny experiments
+    description: One small thing to try today and what it reveals
+
+visual:
+  style_summary: "Quiet, cinematic realism. Single adults in ordinary spaces at in-between moments: a kitchen at night, a bus window, a desk lamp. Long lenses, shallow focus, muted cool palette with one warm light source. Slow or still camera. Space and silence are part of the design. Nothing looks like an app screenshot."
+  colors:
+    primary: "#1F2A44"
+    secondary: "#8FA3BF"
+    accent: "#E9C46A"
+    background: "#0F1420"
+    text: "#F2F4F8"
+  fonts:
+    heading: Fraunces
+    body: Inter
+    source: google
+  camera_language:
+    shot_sizes: [medium, medium_close, close_up, wide]
+    movements: [static, slow_push_in, rack_focus]
+    lenses: [50mm, 85mm, 135mm]
+    framing_rules:
+      - One person, never a crowd; often seen from behind or in profile
+      - Negative space on one side of the frame for the thought to sit in
+      - Practical light sources visible in frame (lamp, window, phone glow)
+  realism_rules:
+    - Real skin texture, real fabric, real reflections; no beauty-retouch look
+    - Motivated light only; no coloured gels or rim light without a source
+    - Hands, eyes and posture must read as a real person thinking
+  lighting: low-key, one warm practical against cool ambient
+  color_grade: muted cool shadows, warm highlights, soft contrast, filmic grain
+  forbidden_styles:
+    - stock-photo smiling people
+    - neon brain / glowing synapse imagery
+    - infographic or diagram look
+    - anime or illustration
+
+pacing:
+  duration_s: { min: 30, max: 42 }
+  hold_bias: balanced
+  cuts_per_10s: { min: 1, max: 3 }
+  shot_count_hint: { min: 6, max: 9 }
+
+voice:
+  provider: cartesia
+  voice_id: "REPLACE_WITH_CARTESIA_VOICE_ID"
+  style: low, calm, close to the microphone, unhurried
+  speed: 0.92
+  language: en
+  narration_policy: always
+  line_gap_s: 0.5
+
+music:
+  policy: optional
+  mood_tags: [ambient, minimal, piano, warm-pad]
+  energy: low
+  gain_db: -22
+
+text_policy:
+  captions: when_needed
+  hook_style: a single serif line in the top safe zone, sentence case
+  max_words_on_screen: 7
+
+cta:
+  policy: soft
+  patterns:
+    - "One concept a day. Mindcode."
+    - "Try the experiment. Mindcode."
+  end_card: true
+  handle: "@mindcode.app"
+
+entities:
+  - id: protagonist
+    kind: character
+    name: the protagonist
+    static_features: an adult in their early thirties, medium-length dark hair, olive skin, calm face, usually seen in profile or from behind
+    dynamic_defaults: dark-green knit sweater, no jewellery
+  - id: night_kitchen
+    kind: location
+    name: the night kitchen
+    static_features: small apartment kitchen at night, one warm pendant lamp over a wooden counter, cool blue light from a window, a single mug
+    dynamic_defaults: tidy, quiet
+
+edit_defaults:
+  mode_bias: ASSEMBLY
+  modes_allowed: [FINISH_ONLY, LIGHT, ASSEMBLY]
+  transitions_allowed: [cut, dissolve]
+  effects_allowed: []
+  logo_placement: end_card
+  still_motion_amount: 0.3
+
+budget:
+  target_usd: 1.8
+  hard_cap_usd: 2.5
+  ai_video_seconds_target: 15
+  keyframe_attempts: 3
+
+forbidden:
+  styles: []
+  claims: [medical or therapeutic outcomes]
+  words: [toxic, narcissist, trauma-bonded]
+  visuals: [glowing brains, app screenshots, people pointing at charts]
