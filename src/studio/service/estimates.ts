@@ -4,6 +4,7 @@ import type { BudgetLedger } from "../../budget/ledger.js";
 import { llmEstimate, PRICING_AS_OF } from "../../config/pricing.js";
 import { type ProviderSettings, resolveProviders } from "../../config/settings.js";
 import type { RunContext } from "../../pipeline/run.js";
+import { PRODUCTION_STAGES } from "../../pipeline/stages/index.js";
 import { buildProviders } from "../../providers/registry.js";
 import type { Providers } from "../../providers/types.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
@@ -235,12 +236,18 @@ export function preflightView(run: RunContext, ledger: BudgetLedger): PreflightV
   const route = run.readOutput("06_route", RoutingPlanSchema);
   const sb = run.readOutput("04_storyboard", StoryboardArtifactSchema);
   const voice = run.hasOutput("03_voice") ? run.readOutput("03_voice", VoiceResultSchema) : null;
-  const remainingEstimate = Math.max(0, route.totals.est_total_usd - spent);
+  // Once the run has finished there is nothing left to generate: the panel becomes a record.
+  const finished = run.manifest.status === "done";
+  const productionStarted = PRODUCTION_STAGES.some((st) => {
+    const status = run.manifest.stages[st.id]?.status;
+    return status !== undefined && status !== "pending";
+  });
+  const remainingEstimate = finished ? 0 : Math.max(0, route.totals.est_total_usd - spent);
   const p = estimatorProviders(settings);
   const imagePrompt = agentEstimate(p, "image-prompter", "fast", FAST_OUT, 4000);
   const motionPrompt = agentEstimate(p, "motion-prompter", "fast", 400, 2500);
   const videoShots = route.shots.filter((s) => s.source === "GEN_VIDEO").length;
-  const promptsUsd = sb.shots.length * imagePrompt + videoShots * motionPrompt;
+  const promptsUsd = finished ? 0 : sb.shots.length * imagePrompt + videoShots * motionPrompt;
   const min = Math.max(0, remainingEstimate * 0.85);
   const max = Math.min(hold, remainingEstimate * 1.15 + promptsUsd);
   const estimate: EstimateRange = {
@@ -269,7 +276,9 @@ export function preflightView(run: RunContext, ledger: BudgetLedger): PreflightV
         note: "image and motion prompts per shot",
       },
       {
-        item: "Already spent (planning + narration)",
+        item: productionStarted
+          ? "Already spent on this run"
+          : "Already spent (planning + narration)",
         min_usd: spent,
         max_usd: spent,
         note: "actual, from the ledger",

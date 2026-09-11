@@ -57,9 +57,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "studio/components/ui/**"
-      ],
+      "includes": ["studio/components/ui/**"],
       "linter": {
         "rules": {
           "a11y": "off"
@@ -67,9 +65,7 @@
       }
     },
     {
-      "includes": [
-        "studio/**"
-      ],
+      "includes": ["studio/**"],
       "linter": {
         "rules": {
           "performance": {

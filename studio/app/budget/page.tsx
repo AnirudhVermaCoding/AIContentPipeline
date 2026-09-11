@@ -229,8 +229,8 @@ export default function BudgetPage() {
               </div>
             ) : null}
             <ErrorBanner message={err} />
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-fg-subtle">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 flex-1 basis-60 text-[11px] text-fg-subtle">
                 Per-video cap and soft AI-video seconds live in Brand Direction → Budget defaults.
                 Rate: 1 USD = {m.rate} INR (Settings).
               </p>

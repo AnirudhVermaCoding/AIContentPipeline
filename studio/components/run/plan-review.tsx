@@ -78,6 +78,7 @@ export function PreflightPanel({
   const wallet = b.windows.find((w) => w.rule === "wallet");
   const two = b.windows.find((w) => w.rule === "two_day");
   const after = b.after_run_usd;
+  const routeConflict = detail.artifacts.route?.budget_check.status === "conflict";
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
       <Card>
@@ -143,7 +144,9 @@ export function PreflightPanel({
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="text-xs font-medium text-fg-muted">
-                Estimated cost{preflight.stage === "planned" ? " to finish" : ""}
+                {detail.run.ui_status === "complete"
+                  ? "Nothing left to generate"
+                  : `Estimated cost${preflight.stage === "planned" ? " to finish" : ""}`}
               </span>
               <span className="num text-lg font-semibold">
                 <Money usd={preflight.estimate.min_usd} secondary={false} size="lg" /> –{" "}
@@ -176,9 +179,18 @@ export function PreflightPanel({
             ) : null}
           </div>
           {preflight.alternatives.length ? (
-            <div className="rounded-md border border-warn/30 bg-warn-bg p-3 text-xs text-warn">
+            <div
+              className={cn(
+                "rounded-md border p-3 text-xs",
+                routeConflict
+                  ? "border-warn/30 bg-warn-bg text-warn"
+                  : "border-border bg-surface-2 text-fg-muted",
+              )}
+            >
               <p className="font-medium">
-                The router could not fit the story inside the cap. Alternatives:
+                {routeConflict
+                  ? "The router could not fit the story inside the cap. Alternatives:"
+                  : "Cheaper plans the router considered and set aside:"}
               </p>
               <ul className="mt-1 list-disc pl-4">
                 {preflight.alternatives.map((a) => (
