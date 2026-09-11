@@ -34,6 +34,7 @@ export const Transition = z.object({
 
 export const EdlAudio = z.object({
   voice_path: z.string().nullable(),
+  voice_start_s: z.number(),
   music_path: z.string().nullable(),
   music_gain_db: z.number(),
   ducking: z
