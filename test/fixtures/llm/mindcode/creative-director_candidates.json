@@ -1,0 +1,112 @@
+{
+  "candidates": [
+    {
+      "title": "The fix",
+      "concept": "Someone rinses one mug in a night kitchen and, without meaning to, reaches for the same chair, the same window, the same thought. The film shows a habit as a groove worn in a day, not a decision, and ends with the smallest possible change: the mug goes on the other side of the sink.",
+      "hook": "You did not decide to stand here. Your hands did.",
+      "why": "It names something the viewer has done tonight and cannot argue with.",
+      "scores": {
+        "originality": 7,
+        "goal_alignment": 9,
+        "brand_fit": 9,
+        "feasibility": 8,
+        "product_accuracy": 9,
+        "budget_feasibility": 8,
+        "ai_slop_risk": 2
+      }
+    },
+    {
+      "title": "The chair",
+      "concept": "A day told only through one kitchen chair: pulled out, sat on, pushed back in, at the same angle every time, until the last shot shows it pulled out somewhere new.",
+      "hook": "A chair leg scrapes the same groove in the floor.",
+      "why": "A purer visual metaphor for habit, but more abstract and further from the everyday-bias pillar's plain examples.",
+      "scores": {
+        "originality": 8,
+        "goal_alignment": 6,
+        "brand_fit": 7,
+        "feasibility": 7,
+        "product_accuracy": 8,
+        "budget_feasibility": 7,
+        "ai_slop_risk": 4
+      }
+    }
+  ],
+  "selected_index": 0,
+  "brief": {
+    "concept": "Someone rinses one mug in a night kitchen and, without meaning to, reaches for the same chair, the same window, the same thought. The film shows a habit as a groove worn in a day, not a decision, and ends with the smallest possible change: the mug goes on the other side of the sink.",
+    "hook": {
+      "line": "You did not decide to stand here. Your hands did.",
+      "type": "a recognition, second person, present tense",
+      "why": "It names something the viewer has done tonight and cannot argue with."
+    },
+    "emotional_arc": [
+      {
+        "beat": "the groove",
+        "emotion": "recognition",
+        "purpose": "the kitchen ritual, seen as automatic"
+      },
+      {
+        "beat": "the mechanism",
+        "emotion": "calm curiosity",
+        "purpose": "cue, routine, reward, named in plain words"
+      },
+      {
+        "beat": "the tiny change",
+        "emotion": "relief",
+        "purpose": "moving the mug is enough to feel the groove"
+      },
+      {
+        "beat": "the invitation",
+        "emotion": "calm",
+        "purpose": "try the experiment tonight"
+      }
+    ],
+    "pillar_id": "everyday_bias",
+    "audience_insight": "They know the word habit; what they want is to feel the mechanism in their own kitchen so it stops being an accusation.",
+    "narrative_device": "a single evening ritual observed twice, the second time with one thing moved",
+    "key_message": "A habit is a cue you no longer notice. Move the cue and you can feel it.",
+    "target_duration_s": 36,
+    "research_depth": "light",
+    "research_questions": [
+      "What is the plainest accurate description of the cue-routine-reward loop?",
+      "What everyday cues do people report as strongest at night?"
+    ],
+    "text_overlay_intent": "hook_only",
+    "cta_decision": {
+      "use": true,
+      "text": "Try the experiment. Mindcode.",
+      "style": "end_card"
+    },
+    "edit_mode_intent": "ASSEMBLY",
+    "motion_promise": {
+      "kind": "mixed",
+      "min_ai_video_s": 10,
+      "min_motion_ratio": 0.25,
+      "still_fallback_allowed": true,
+      "reason": "The hands moving without thought is the point; two moments of real motion carry it, the rest can hold."
+    },
+    "visual_world": {
+      "setting": "a small apartment kitchen at night, one warm pendant lamp, cool blue window",
+      "time_of_day": "late night",
+      "lighting": "one warm practical against cool ambient, low-key",
+      "palette_note": "deep blue shadows, one amber pool of lamplight, a white mug",
+      "texture_note": "wet ceramic, wooden counter grain, knit sweater, condensation on the window"
+    },
+    "entities_needed": [
+      {
+        "id": "protagonist",
+        "role": "the person whose hands know the kitchen",
+        "is_new": false,
+        "description": null
+      },
+      {
+        "id": "night_kitchen",
+        "role": "the only location",
+        "is_new": false,
+        "description": null
+      }
+    ],
+    "avoid": ["glowing brain imagery", "app screenshots", "smiling stock people", "any diagram"],
+    "why_it_works": "It turns a concept into a felt moment in a real room, and gives one thing to do that costs nothing."
+  }
+}

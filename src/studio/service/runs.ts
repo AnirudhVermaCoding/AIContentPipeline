@@ -5,16 +5,19 @@ import type { BudgetLedger } from "../../budget/ledger.js";
 import { PRICING_AS_OF, pricingIsStale } from "../../config/pricing.js";
 import { resolveProviders } from "../../config/settings.js";
 import { buildReport } from "../../cost/report.js";
+import { controlsForRun, resolveCreativeControls } from "../../creative/controls.js";
 import type { GenerationRow, Repos } from "../../db/repos.js";
 import type { Db } from "../../db/sqlite.js";
 import { findRunDir, loadManifest } from "../../pipeline/manifest.js";
 import { openRun, type RunContext } from "../../pipeline/run.js";
 import { listShotHistory, loadShotRecord, shotDir } from "../../pipeline/shots.js";
+import { DIRECTOR_RECORD_FILE, type DirectorRecord } from "../../pipeline/stages/00-brief.js";
 import { SHOT_PROGRESS_FILE, type ShotProgress } from "../../pipeline/stages/08-animate.js";
 import { RENDER_PROGRESS_FILE, type RenderProgressFile } from "../../pipeline/stages/11-render.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
 import { OUTPUT } from "../../schema/common.js";
 import { ContinuityBibleSchema } from "../../schema/continuity.js";
+import { VariationStrength } from "../../schema/creative.js";
 import { EdlSchema } from "../../schema/edl.js";
 import type { RunManifest } from "../../schema/manifest.js";
 import { FinalQcReportSchema } from "../../schema/qc.js";
@@ -49,6 +52,7 @@ import {
   uiRunStatus,
   uiStageStatus,
 } from "./common.js";
+import { creativeView } from "./creative.js";
 import { estimatorProviders, preflightView } from "./estimates.js";
 import { productView } from "./products.js";
 
@@ -188,6 +192,7 @@ export function summaryFromManifest(
     job: jobView(ctx.jobs, job),
     brand_config_version: m.brand_config_version,
     models: [...new Set(Object.values(m.providers).map((p) => p.model))],
+    creative: creativeView(resolveCreativeControls(m.options, null)),
   };
 }
 
@@ -482,6 +487,9 @@ function versionViews(
       prompt_version: a.prompt_version,
       refs: a.refs.map((r) => ({ path: r, url: runFileUrl(run.manifest.brand_id, run.runId, r) })),
       params: a.params,
+      variation_strength: VariationStrength.safeParse(a.params.variation_strength).success
+        ? (a.params.variation_strength as VariationStrength)
+        : null,
       checks: a.checks,
       latency_ms: a.latency_ms,
       error: a.error,
@@ -831,9 +839,15 @@ export function runDetail(
   const rejected = withKeyframe.filter((s) => s.approval === "rejected").length;
   const storyboardApproved = !m.options.dry_run && !!route;
   const finalPath = path.join(run.runDir, "final.mp4");
+  const directorFile = path.join(run.runDir, "00_brief", DIRECTOR_RECORD_FILE);
   return {
     run: summary,
     manifest: m,
+    creative: {
+      controls: creativeView(controlsForRun(run)),
+      director: exists(directorFile) ? readJson<DirectorRecord>(directorFile) : null,
+      pending_regeneration: m.pending_regeneration ?? null,
+    },
     brand: brandSummary(brand),
     product: brand.product ? productView(brand.profile.id, brand.product, ctx.db) : null,
     stages: stageViews(run, calls),

@@ -91,6 +91,10 @@ export default function RunPage() {
             {d.brand.name}
             {d.run.product_name ? ` · ${d.run.product_name}` : ""} · {d.run.topic} · <span className="mono text-xs">{d.run.run_id}</span>
           </p>
+          <p className="text-xs text-fg-muted" title="Creative controls this run generates with">
+            Creative Freedom <span className="font-medium text-fg">{d.creative.controls.creative_label} · {d.creative.controls.creative_freedom.toFixed(2)}</span>
+            {" · "}Goal Focus <span className="font-medium text-fg">{d.creative.controls.goal_label} · {d.creative.controls.goal_focus.toFixed(2)}</span>
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-2 text-right">

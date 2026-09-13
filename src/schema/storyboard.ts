@@ -8,6 +8,7 @@ import {
   NarrativeRole,
   ShotSize,
 } from "./common.js";
+import { RegenerationRecordSchema } from "./creative.js";
 
 export const ShotSchema = z.object({
   id: z.string().describe("shot_01, shot_02, ... in order"),
@@ -65,5 +66,7 @@ export const StoryboardArtifactSchema = StoryboardSchema.extend({
       z.object({ id: z.string(), status: z.enum(["pass", "warn", "fail"]), detail: z.string() }),
     ),
   }),
+  /** Set when this storyboard came from an operator-requested regeneration (whole or one shot). */
+  regeneration: RegenerationRecordSchema.nullable().optional(),
 });
 export type StoryboardArtifact = z.infer<typeof StoryboardArtifactSchema>;

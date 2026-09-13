@@ -219,5 +219,123 @@ describe("studio API", () => {
     const dash = await (await app.request("/api/brands/bachalogy/dashboard")).json();
     expect(dash.totals.videos_completed).toBe(1);
     expect(dash.budget.wallet.spent_usd).toBeGreaterThan(0);
+
+    // Creative controls: brand defaults populated the run, the API echoes them everywhere.
+    expect(d5.creative.controls).toMatchObject({
+      creative_freedom: 0.7,
+      goal_focus: 0.9,
+      creative_label: "Bold",
+      goal_label: "Goal-first",
+      preset: "creative_ad",
+    });
+    expect(d5.run.creative.creative_freedom).toBe(0.7);
+    expect(d5.preflight?.creative.candidate_count).toBe(2);
+    expect(d5.creative.director?.candidate_count).toBe(2);
+    expect(d5.artifacts.report?.creative?.creative_label).toBe("Bold");
+    const clipVersions = d5.shots.find((s) => s.shot_id === clipShot)?.versions.clips ?? [];
+    expect(clipVersions.find((v) => v.attempt === 2)?.variation_strength).toBeNull();
+
+    // Duplicate prefill carries the controls and the original request.
+    const req = await (await app.request(`/api/runs/${id}/request`)).json();
+    expect(req.source).toBe("stored");
+    expect(req.request.topic).toBe("first steps");
+    expect(req.request.creative).toEqual({ creative_freedom: 0.7, goal_focus: 0.9 });
+    const dup = await (await post(`/api/runs/${id}/actions/duplicate`, {})).json();
+    const dupDetail = (await (
+      await app.request(`/api/runs/${dup.run.run_id}`)
+    ).json()) as RunDetail;
+    expect(dupDetail.manifest.options.creative_freedom).toBe(0.7);
+    expect(dupDetail.manifest.options.goal_focus).toBe(0.9);
+    const dupReq = await (await app.request(`/api/runs/${dup.run.run_id}/request`)).json();
+    expect(dupReq.source).toBe("stored");
+  }, 600_000);
+
+  it("exposes brand creative defaults, presets and settings, and validates the controls", async () => {
+    const brand = await (await app.request("/api/brands/bachalogy")).json();
+    expect(brand.creative).toMatchObject({
+      creative_freedom: 0.7,
+      goal_focus: 0.9,
+      sources: { creative_freedom: "brand", goal_focus: "brand" },
+    });
+    const other = await (await app.request("/api/brands/mindcode")).json();
+    expect(other.creative).toMatchObject({
+      creative_freedom: 0.65,
+      goal_focus: 0.85,
+      sources: { creative_freedom: "default", goal_focus: "default" },
+    });
+    const settings = await (await app.request("/api/settings")).json();
+    expect(settings.creative.presets.map((p: { id: string }) => p.id)).toEqual([
+      "direct_ad",
+      "creative_ad",
+      "brand_film",
+      "experimental",
+    ]);
+    expect(settings.creative.creative_ranges.map((r: { label: string }) => r.label)).toEqual([
+      "Safe",
+      "Focused",
+      "Balanced",
+      "Bold",
+      "Wild",
+    ]);
+    expect(settings.creative.variation_options.map((v: { id: string }) => v.id)).toEqual([
+      "small",
+      "fresh",
+      "different",
+    ]);
+
+    const body = {
+      brand_id: "bachalogy",
+      product_id: null,
+      title: null,
+      topic: "bad controls",
+      goal: "sell",
+      audience: null,
+      duration_s: null,
+      platform: null,
+      creative_direction: null,
+      cta: null,
+      notes: null,
+      advanced: {
+        budget_override_usd: null,
+        ai_video_seconds: null,
+        voice: "brand_default",
+        music: "brand_default",
+        approval_mode: "storyboard_only",
+        provider_mode: "mock",
+        provider_overrides: {},
+      },
+    };
+    const tooHigh = await post("/api/runs", { ...body, creative: { creative_freedom: 1.5 } });
+    expect(tooHigh.status).toBe(400);
+    expect((await tooHigh.json()).error).toMatch(/between 0 and 1/);
+    const negative = await post("/api/runs", { ...body, creative: { goal_focus: -0.1 } });
+    expect(negative.status).toBe(400);
+    const wrongType = await post("/api/runs", { ...body, creative: { creative_freedom: "wild" } });
+    expect(wrongType.status).toBe(400);
+    // Nothing was created by the rejected requests.
+    const runs = (await (await app.request("/api/runs?brand=bachalogy")).json()) as RunSummary[];
+    expect(runs.some((r) => r.topic === "bad controls")).toBe(false);
+
+    // A run-level override beats the brand default and is echoed back.
+    const created = (await (
+      await post("/api/runs", {
+        ...body,
+        topic: "overridden controls",
+        creative: { creative_freedom: 0.2 },
+      })
+    ).json()) as CreateVideoResponse;
+    expect(created.blocked).toBeNull();
+    expect(created.run.creative).toMatchObject({
+      creative_freedom: 0.2,
+      goal_focus: 0.9,
+      creative_label: "Safe",
+    });
+    expect(created.preflight.creative.candidate_count).toBe(1);
+    const bad = await post(`/api/runs/${created.run.run_id}/actions/clips/regenerate`, {
+      shot_id: "shot_01",
+      variation: "huge",
+    });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toMatch(/variation/);
   }, 600_000);
 });

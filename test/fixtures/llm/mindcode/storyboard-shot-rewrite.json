@@ -1,0 +1,23 @@
+{
+  "id": "shot_03",
+  "narration_line_ids": ["line_03"],
+  "duration_s": 4,
+  "importance": "support",
+  "motion_need": "none",
+  "narrative_role": "introduce",
+  "shot_intent": "The habit seen from above: the same mug in the same place.",
+  "hero_moment": false,
+  "shot_size": "close_up",
+  "angle": "high",
+  "movement": "static",
+  "lens": "50mm",
+  "description": "Looking straight down at the sink: one rinsed mug upside down on the rack, water beading on its base, the same tea stain ring on the steel below it",
+  "action": "a last drop runs down the mug",
+  "entities_in_frame": ["night_kitchen"],
+  "location_id": "night_kitchen",
+  "lighting": "single warm pool, everything else cool",
+  "texture_keywords": ["wet ring", "wood grain", "ceramic glaze"],
+  "continuity_notes": "the mug and the sink match shot 2",
+  "hold_ok": true,
+  "text_overlay": null
+}

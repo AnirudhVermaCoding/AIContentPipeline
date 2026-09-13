@@ -1,0 +1,23 @@
+{
+  "id": "shot_03",
+  "narration_line_ids": ["line_03"],
+  "duration_s": 3.5,
+  "importance": "support",
+  "motion_need": "none",
+  "narrative_role": "emotional_beat",
+  "shot_intent": "Her decision, seen from the bot's height: the moment before she acts.",
+  "hero_moment": false,
+  "shot_size": "close_up",
+  "angle": "low",
+  "movement": "static",
+  "lens": "35mm",
+  "description": "Low on the carpet, level with the crooked tile: the sky-blue bot rests against its edge in the foreground, and behind it, out of focus, the child's knees and one hand hovering, deciding",
+  "action": "the hand hovers; nothing else moves",
+  "entities_in_frame": ["wobble_bot", "child"],
+  "location_id": "living_room_floor",
+  "lighting": "window light rakes across the carpet fibre",
+  "texture_keywords": ["carpet fibre", "matte plastic", "wood grain"],
+  "continuity_notes": "bot position matches the end of shot 2; the crooked tile stays where it was",
+  "hold_ok": true,
+  "text_overlay": null
+}

@@ -10,6 +10,7 @@ import {
   ReceiptText,
   RefreshCw,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Money } from "@/components/money";
 import type { RunActions } from "@/components/run/actions";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ export function FinalVideo({
   actions: RunActions;
   onTab: (t: string) => void;
 }) {
+  const router = useRouter();
   const src = fileUrl(detail.files.final_video_url);
   const c = detail.costs;
   const qc = detail.artifacts.final_qc;
@@ -161,8 +163,8 @@ export function FinalVideo({
           </Button>
           <Button
             variant="secondary"
-            onClick={() => actions.duplicate()}
-            disabled={actions.busy !== null}
+            onClick={() => router.push(`/create?from=${encodeURIComponent(detail.run.run_id)}`)}
+            title="Opens Create Video prefilled with this run's brief and creative controls"
           >
             <Copy /> Duplicate as new video
           </Button>

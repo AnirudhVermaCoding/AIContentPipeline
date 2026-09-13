@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PendingRegenerationSchema } from "./creative.js";
 
 export const StageStatus = z.enum([
   "pending",
@@ -48,6 +49,20 @@ export const RunOptions = z.object({
   brand_source: z.enum(["live", "snapshot"]).optional(),
   /** Keep continuity entries of unchanged shots verbatim on re-run so their shot hashes survive. */
   continuity_merge: z.enum(["preserve_unchanged", "full"]).optional(),
+  /**
+   * Creative controls (0–1), resolved at creation from the request, else the brand's
+   * `creative_defaults`, else 0.65 / 0.85. Stored explicitly so a later brand edit never changes
+   * them. Absent on runs created before the controls existed (those keep their old hashes).
+   */
+  creative_freedom: z.number().min(0).max(1).optional(),
+  goal_focus: z.number().min(0).max(1).optional(),
+  /** Where each stored value came from (provenance only; never hashed). */
+  creative_sources: z
+    .object({
+      creative_freedom: z.enum(["run", "brand", "default"]),
+      goal_focus: z.enum(["run", "brand", "default"]),
+    })
+    .optional(),
 });
 export type RunOptions = z.infer<typeof RunOptions>;
 
@@ -88,5 +103,7 @@ export const RunManifestSchema = z.object({
   last_error: z.string().nullable(),
   /** Why a run is `stopped` when the operator paused or cancelled it (null otherwise). */
   stop_reason: z.enum(["paused", "cancelled", "dry_run", "until"]).nullable().optional(),
+  /** A concept / storyboard regeneration requested by the operator, consumed by the next run. */
+  pending_regeneration: PendingRegenerationSchema.nullable().optional(),
 });
 export type RunManifest = z.infer<typeof RunManifestSchema>;

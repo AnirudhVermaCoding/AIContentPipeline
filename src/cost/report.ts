@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { PRICING_AS_OF, pricingIsStale } from "../config/pricing.js";
+import { controlsForRun } from "../creative/controls.js";
 import type { GenerationRow } from "../db/repos.js";
 import type { RunContext } from "../pipeline/run.js";
 import { loadShotRecord } from "../pipeline/shots.js";
@@ -52,6 +53,31 @@ export interface CostReport {
   decisions: Array<{ stage: string; subject: string; reason: string }>;
   pricing_as_of: string;
   pricing_stale: boolean;
+  /** The creative controls this run generated with (absent on runs from before the controls). */
+  creative: {
+    creative_freedom: number;
+    goal_focus: number;
+    creative_label: string;
+    goal_label: string;
+    candidate_count: number | null;
+    source: "run" | "legacy";
+  } | null;
+}
+
+function creativeReport(run: RunContext): CostReport["creative"] {
+  const o = run.manifest.options;
+  const legacy = o.creative_freedom == null || o.goal_focus == null;
+  const c = controlsForRun(run);
+  const file = path.join(run.runDir, "00_brief", "director.json");
+  const director = exists(file) ? readJson<{ candidate_count?: number }>(file) : null;
+  return {
+    creative_freedom: c.creative_freedom,
+    goal_focus: c.goal_focus,
+    creative_label: c.creative_label,
+    goal_label: c.goal_label,
+    candidate_count: director?.candidate_count ?? null,
+    source: legacy ? "legacy" : "run",
+  };
 }
 
 export function buildReport(run: RunContext): CostReport {
@@ -163,6 +189,7 @@ export function buildReport(run: RunContext): CostReport {
       .map((d) => ({ stage: d.stage, subject: d.subject, reason: d.reason })),
     pricing_as_of: PRICING_AS_OF,
     pricing_stale: pricingIsStale(),
+    creative: creativeReport(run),
   };
 }
 

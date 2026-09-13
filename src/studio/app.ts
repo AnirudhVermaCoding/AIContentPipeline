@@ -21,8 +21,17 @@ import {
   useStillForShot,
 } from "../pipeline/approval.js";
 import { createRun } from "../pipeline/run.js";
+import type { VariationStrength } from "../schema/creative.js";
 import { nowIso, readJsonl } from "../util/fs.js";
-import type { CreateVideoRequest, RunListFilters, StoryboardEditRequest } from "./api-types.js";
+import type {
+  CreateVideoRequest,
+  RegenerateConceptRequest,
+  RegenerateShotRequest,
+  RegenerateStoryboardRequest,
+  RegenerationEstimate,
+  RunListFilters,
+  StoryboardEditRequest,
+} from "./api-types.js";
 import { JobSupervisor, type SpawnOptions } from "./jobs.js";
 import {
   brandDetail,
@@ -32,6 +41,7 @@ import {
 } from "./service/brand.js";
 import { STAGE_ORDER } from "./service/common.js";
 import { createVideo } from "./service/create.js";
+import { parseVariation, runRequestView, STUDIO_REQUEST_FILE } from "./service/creative.js";
 import { dashboardView } from "./service/dashboard.js";
 import { regenerationEstimate } from "./service/estimates.js";
 import { healthReport } from "./service/health.js";
@@ -53,7 +63,13 @@ import {
   summaryFromManifest,
 } from "./service/runs.js";
 import { ensureDefaultFx, getStudioSettings, updateStudioSettings } from "./service/settings.js";
-import { applyEdit, computeEdit, requestStoryboardRegeneration } from "./service/storyboard.js";
+import {
+  applyEdit,
+  computeEdit,
+  requestConceptRegeneration,
+  requestStoryboardRegeneration,
+  requestStoryboardShotRegeneration,
+} from "./service/storyboard.js";
 
 /**
  * The studio API: JSON over HTTP on 127.0.0.1 for the Next.js app, plus artifact streaming.
@@ -329,11 +345,19 @@ export function createApp(ctx: StudioContext, opts: AppOptions = {}): Hono {
     });
   });
   app.get("/api/runs/:id/audit", (c) => c.json(auditRows(ctx.db, c.req.param("id"))));
+  app.get("/api/runs/:id/request", (c) => {
+    requireRun(c.req.param("id"));
+    return c.json(runRequestView(openRunForStudio(c.req.param("id"))));
+  });
   app.get("/api/runs/:id/estimate", (c) => {
     requireRun(c.req.param("id"));
-    const kind = c.req.query("kind") as "keyframe" | "clip" | "storyboard" | "continuity";
-    if (!["keyframe", "clip", "storyboard", "continuity"].includes(kind))
-      throw new HTTPException(400, { message: "kind must be keyframe|clip|storyboard|continuity" });
+    const kind = c.req.query("kind") as RegenerationEstimate["kind"];
+    if (
+      !["keyframe", "clip", "storyboard", "continuity", "concept", "storyboard_shot"].includes(kind)
+    )
+      throw new HTTPException(400, {
+        message: "kind must be keyframe|clip|storyboard|continuity|concept|storyboard_shot",
+      });
     return c.json(
       regenerationEstimate(
         openRunForStudio(c.req.param("id")),
@@ -394,8 +418,35 @@ export function createApp(ctx: StudioContext, opts: AppOptions = {}): Hono {
   });
   app.post("/api/runs/:id/actions/regenerate-storyboard", async (c) => {
     const run = withRun(c.req.param("id"));
-    const reset = requestStoryboardRegeneration(run);
+    const body = await json<RegenerateStoryboardRequest>(c);
+    const reset = requestStoryboardRegeneration(run, "local-user", {
+      variation: parseVariation(body.variation),
+      instruction: body.instruction?.trim() || null,
+    });
     const job = await resume(run.runId, "regenerate storyboard");
+    return respond(c, run.runId, { reset, job });
+  });
+  app.post("/api/runs/:id/actions/regenerate-concept", async (c) => {
+    const run = withRun(c.req.param("id"));
+    const body = await json<RegenerateConceptRequest>(c);
+    const reset = requestConceptRegeneration(run, {
+      variation: parseVariation(body.variation),
+      instruction: body.instruction?.trim() || null,
+      actor: "local-user",
+    });
+    const job = await resume(run.runId, "regenerate concept");
+    return respond(c, run.runId, { reset, job });
+  });
+  app.post("/api/runs/:id/actions/storyboard/regenerate-shot", async (c) => {
+    const run = withRun(c.req.param("id"));
+    const body = await json<RegenerateShotRequest>(c);
+    if (!body.shot_id) throw new HTTPException(400, { message: "shot_id is required" });
+    const reset = requestStoryboardShotRegeneration(run, body.shot_id, {
+      variation: parseVariation(body.variation, "small"),
+      instruction: body.instruction?.trim() || null,
+      actor: "local-user",
+    });
+    const job = await resume(run.runId, `rewrite ${body.shot_id}`);
     return respond(c, run.runId, { reset, job });
   });
   app.post("/api/runs/:id/actions/keyframes", async (c) => {
@@ -405,7 +456,11 @@ export function createApp(ctx: StudioContext, opts: AppOptions = {}): Hono {
       approve_remaining?: boolean;
       resume?: boolean;
     }>(c);
-    const summary = applyKeyframeDecisions(run, body.decisions ?? [], {
+    const decisions = (body.decisions ?? []).map((d) => ({
+      ...d,
+      variation: d.variation == null ? null : parseVariation(d.variation),
+    }));
+    const summary = applyKeyframeDecisions(run, decisions, {
       approveRemainingPending: body.approve_remaining ?? false,
     });
     const job = body.resume === false ? null : await resume(run.runId, "keyframe decisions");
@@ -422,8 +477,19 @@ export function createApp(ctx: StudioContext, opts: AppOptions = {}): Hono {
   });
   app.post("/api/runs/:id/actions/clips/regenerate", async (c) => {
     const run = withRun(c.req.param("id"));
-    const body = await json<{ shot_id: string; instruction?: string | null; resume?: boolean }>(c);
-    const record = requestClipRegeneration(run, body.shot_id, body.instruction ?? null);
+    const body = await json<{
+      shot_id: string;
+      instruction?: string | null;
+      variation?: VariationStrength | null;
+      resume?: boolean;
+    }>(c);
+    const record = requestClipRegeneration(
+      run,
+      body.shot_id,
+      body.instruction ?? null,
+      "local-user",
+      body.variation == null ? null : parseVariation(body.variation),
+    );
     const job =
       body.resume === false ? null : await resume(run.runId, `regenerate clip ${body.shot_id}`);
     return respond(c, run.runId, { record, job });
@@ -522,6 +588,10 @@ export function createApp(ctx: StudioContext, opts: AppOptions = {}): Hono {
       options: { ...m.options, until: null, dry_run: true, brand_source: "snapshot" },
       quiet: true,
     });
+    // The stored Create Video request travels with the copy so it can be duplicated again.
+    const requestFile = path.join(src.runDir, STUDIO_REQUEST_FILE);
+    if (fs.existsSync(requestFile))
+      fs.copyFileSync(requestFile, path.join(run.runDir, STUDIO_REQUEST_FILE));
     run.repos.audit({
       action: "run.duplicate",
       target_type: "run",

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { CostSourceBadge, Money } from "@/components/money";
 import type { RunActions } from "@/components/run/actions";
 import { ConfirmSpendDialog } from "@/components/run/confirm-spend";
+import { type Variation, VariationPicker } from "@/components/run/variation-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,6 +116,8 @@ export function KeyframeGrid({
   const [bulkRegen, setBulkRegen] = useState(false);
   const [full, setFull] = useState<ShotView | null>(null);
   const [promptText, setPromptText] = useState("");
+  const [variation, setVariation] = useState<Variation>("fresh");
+  const [bulkVariation, setBulkVariation] = useState<Variation>("fresh");
   const shots = detail.shots.filter((s) => s.record?.keyframe || s.versions.keyframes.length);
   const gate = detail.manifest.options.approve_keyframes;
   const pending = detail.approvals.keyframes_pending;
@@ -147,7 +150,10 @@ export function KeyframeGrid({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setBulkRegen(true)}
+                onClick={() => {
+                  setBulkVariation("fresh");
+                  setBulkRegen(true);
+                }}
                 disabled={!!liveJob}
               >
                 <RefreshCw /> Regenerate selected ({selected.size})
@@ -266,7 +272,10 @@ export function KeyframeGrid({
                     size="sm"
                     variant="secondary"
                     disabled={!!liveJob}
-                    onClick={() => setRegen({ shot })}
+                    onClick={() => {
+                      setVariation("fresh");
+                      setRegen({ shot });
+                    }}
                   >
                     <RefreshCw /> Regenerate
                   </Button>
@@ -332,6 +341,7 @@ export function KeyframeGrid({
                   decision: "reject",
                   instruction: instruction || "regenerate",
                   prompt: regen.prompt ?? null,
+                  variation: regen.prompt ? null : variation,
                 },
               ],
               false,
@@ -347,9 +357,16 @@ export function KeyframeGrid({
             <img
               src={fileUrl(regen.shot.keyframe_url) as string}
               alt=""
-              className="mx-auto max-h-64 rounded-md"
+              className="mx-auto max-h-48 rounded-md"
             />
           ) : null}
+          {regen.prompt ? (
+            <p className="text-xs text-fg-muted">
+              Your prompt is used verbatim, so the variation strength does not apply.
+            </p>
+          ) : (
+            <VariationPicker value={variation} onChange={setVariation} name="kf-variation" />
+          )}
         </ConfirmSpendDialog>
       ) : null}
       {editPrompt ? (
@@ -410,6 +427,7 @@ export function KeyframeGrid({
               shotId: id,
               decision: "reject" as const,
               instruction: instruction || "regenerate",
+              variation: bulkVariation,
             })),
             false,
             true,
@@ -420,7 +438,9 @@ export function KeyframeGrid({
             onChanged();
           }
         }}
-      />
+      >
+        <VariationPicker value={bulkVariation} onChange={setBulkVariation} name="bulk-variation" />
+      </ConfirmSpendDialog>
       {full ? (
         <Dialog open onOpenChange={(o) => !o && setFull(null)}>
           <DialogContent wide className="bg-neutral-950 p-2">

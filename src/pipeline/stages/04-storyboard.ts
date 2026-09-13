@@ -1,10 +1,25 @@
 import { promptVersions } from "../../agents/prompts.js";
-import { runStoryboardArtist } from "../../agents/storyboard-artist.js";
+import {
+  knownEntityIds,
+  rewriteStoryboardShot,
+  runStoryboardArtist,
+  summarizeStoryboard,
+  validateStoryboard,
+} from "../../agents/storyboard-artist.js";
+import { creativeHashInputs } from "../../creative/controls.js";
 import { assessStoryboardRisk } from "../../qc/storyboard-risk.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
+import type { RegenerationRecord } from "../../schema/creative.js";
 import { ScriptSchema } from "../../schema/script.js";
-import type { Shot, Storyboard, StoryboardArtifact } from "../../schema/storyboard.js";
+import {
+  type Shot,
+  type Storyboard,
+  type StoryboardArtifact,
+  StoryboardArtifactSchema,
+} from "../../schema/storyboard.js";
 import { type VoiceResult, VoiceResultSchema } from "../../schema/voice.js";
+import { ValidationError } from "../../util/errors.js";
+import { nowIso } from "../../util/fs.js";
 import type { StageDef } from "../stage.js";
 
 /**
@@ -79,34 +94,121 @@ export function conformToVoice(
   return { shots, starts, voiceOffset };
 }
 
+/** The plain storyboard inside a stored artifact (drops the timing and risk fields). */
+export function storyboardOf(a: StoryboardArtifact): Storyboard {
+  return {
+    shots: a.shots,
+    total_duration_s: a.total_duration_s,
+    sequence_notes: a.sequence_notes,
+    visual_through_line: a.visual_through_line,
+  };
+}
+
 export const storyboardStage: StageDef = {
   id: "storyboard",
   version: "1",
   dir: "04_storyboard",
   dependsOn: ["brief", "script", "voice"],
-  extraInputs: () => ({ prompts: promptVersions(["storyboard-artist"]) }),
+  extraInputs: (run) => ({
+    prompts: promptVersions(["storyboard-artist"]),
+    ...creativeHashInputs(run.manifest),
+  }),
   async run(ctx) {
     const { run } = ctx;
     const brief = ctx.input("brief", CreativeBriefSchema);
     const script = ctx.input("script", ScriptSchema);
     const voice = ctx.input("voice", VoiceResultSchema);
-    const result = await runStoryboardArtist(run, this.id, brief, script, voice);
     const b = run.brand.profile;
-    const risk = assessStoryboardRisk(result.data, {
+    const pending = run.manifest.pending_regeneration;
+    const regen =
+      pending && (pending.target === "storyboard" || pending.target === "storyboard_shot")
+        ? pending
+        : null;
+    const previous =
+      regen && run.hasOutput(this.dir) ? run.readOutput(this.dir, StoryboardArtifactSchema) : null;
+    let storyboard: Storyboard;
+    if (regen?.target === "storyboard_shot") {
+      // Rewrite exactly one shot; every other shot keeps its text, hash and produced assets.
+      const target = previous?.shots.find((sh) => sh.id === regen.shot_id);
+      if (!previous || !target)
+        throw new Error(`cannot rewrite ${regen.shot_id ?? "?"}: no such shot in the storyboard`);
+      const rewritten = await rewriteStoryboardShot(run, this.id, {
+        brief,
+        storyboard: previous,
+        shot: target,
+        voice,
+        variation: regen.variation,
+        instruction: regen.instruction,
+      });
+      const shot: Shot = {
+        ...rewritten.data,
+        id: target.id,
+        narration_line_ids: target.narration_line_ids,
+        narrative_role: target.narrative_role,
+        hero_moment: target.hero_moment,
+        entities_in_frame: target.entities_in_frame,
+        duration_s: target.duration_s,
+      };
+      const plain = storyboardOf(previous);
+      storyboard = { ...plain, shots: plain.shots.map((sh) => (sh.id === shot.id ? shot : sh)) };
+      const issues = validateStoryboard(storyboard, {
+        clipMax: run.providers.video.maxSeconds,
+        entityIds: [...knownEntityIds(run, brief)],
+        lineIds: voice.lines.map((l) => l.line_id),
+        textAllowed: brief.text_overlay_intent !== "none",
+        maxWordsOnScreen: b.text_policy.max_words_on_screen,
+        shotRange: b.pacing.shot_count_hint,
+      });
+      if (issues.length)
+        throw new ValidationError(`rewritten ${shot.id} breaks the storyboard`, issues);
+      run.events.info(
+        this.id,
+        `rewrote ${shot.id} (${regen.variation} variation)`,
+        undefined,
+        shot.id,
+      );
+    } else {
+      const result = await runStoryboardArtist(run, this.id, brief, script, voice, {
+        variation: regen
+          ? {
+              strength: regen.variation,
+              instruction: regen.instruction,
+              previous: previous ? summarizeStoryboard(previous) : null,
+            }
+          : null,
+      });
+      storyboard = result.data;
+    }
+    if (regen) {
+      // Consumed: a later resume must not replay the same request.
+      run.manifest.pending_regeneration = null;
+      run.save();
+    }
+    const regeneration: RegenerationRecord | null = regen
+      ? {
+          target: regen.target,
+          shot_id: regen.shot_id,
+          variation: regen.variation,
+          instruction: regen.instruction,
+          at: nowIso(),
+        }
+      : null;
+    const risk = assessStoryboardRisk(storyboard, {
       maxWordsOnScreen: b.text_policy.max_words_on_screen,
       textAllowed: brief.text_overlay_intent !== "none",
       shotRange: b.pacing.shot_count_hint,
     });
-    const conformed = conformToVoice(result.data, voice);
+    const conformed = conformToVoice(storyboard, voice);
     const total = conformed.shots.reduce((n, s) => n + s.duration_s, 0);
     const artifact: StoryboardArtifact = {
-      ...result.data,
+      ...storyboard,
       shots: conformed.shots,
       total_duration_s: Math.round(total * 100) / 100,
       shot_start_s: conformed.starts,
       voice_offset_s: conformed.voiceOffset,
       conformed_to_voice: !voice.music_only,
       risk,
+      regeneration,
     };
     ctx.writeOutput(artifact);
     run.repos.insertQc(run.runId, this.id, null, risk.verdict, risk);

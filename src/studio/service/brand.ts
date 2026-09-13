@@ -12,10 +12,12 @@ import {
 import { listProducts } from "../../brand/products.js";
 import { type BrandProfile, BrandProfileSchema } from "../../brand/schema.js";
 import { resolveProviders, snapshotProviders } from "../../config/settings.js";
+import { resolveCreativeControls } from "../../creative/controls.js";
 import type { Db } from "../../db/sqlite.js";
 import { nowIso } from "../../util/fs.js";
 import type { BrandDetail, BrandSummary, BrandVersionView } from "../api-types.js";
 import { brandFileUrl } from "./common.js";
+import { creativeView } from "./creative.js";
 import { productView } from "./products.js";
 
 export function brandSummary(b: LoadedBrand): BrandSummary {
@@ -40,6 +42,7 @@ export function brandSummary(b: LoadedBrand): BrandSummary {
     budget: p.budget,
     voice_configured: !p.voice.voice_id.startsWith("REPLACE_WITH"),
     products_count: productsCount,
+    creative: creativeView(resolveCreativeControls(null, p)),
   };
 }
 

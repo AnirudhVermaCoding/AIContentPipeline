@@ -1,5 +1,6 @@
 import { promptVersions } from "../../agents/prompts.js";
 import { runScreenwriter } from "../../agents/screenwriter.js";
+import { creativeHashInputs } from "../../creative/controls.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
 import { ResearchNotesSchema } from "../../schema/research.js";
 import type { StageDef } from "../stage.js";
@@ -9,7 +10,10 @@ export const scriptStage: StageDef = {
   version: "1",
   dir: "02_script",
   dependsOn: ["brief", "research"],
-  extraInputs: () => ({ prompts: promptVersions(["screenwriter"]) }),
+  extraInputs: (run) => ({
+    prompts: promptVersions(["screenwriter"]),
+    ...creativeHashInputs(run.manifest),
+  }),
   async run(ctx) {
     const brief = ctx.input("brief", CreativeBriefSchema);
     const research = ctx.input("research", ResearchNotesSchema);

@@ -56,6 +56,7 @@ async function produceKeyframe(
     run.control?.checkpoint(`keyframes ${shot.id}`);
     const attempt = nextAttemptNumber(run, shot.id, "keyframe", record);
     const overridePrompt = record.overrides?.prompt ?? null;
+    const variation = record.overrides?.variation ?? null;
     const promptRes = overridePrompt
       ? {
           data: { prompt: overridePrompt, negative_prompt: "" },
@@ -63,10 +64,14 @@ async function produceKeyframe(
           attempts: 0,
           promptVersion: "operator",
         }
-      : await runImagePrompter(run, stageId, shot, continuity, previous, lastFeedback);
+      : await runImagePrompter(run, stageId, shot, continuity, previous, lastFeedback, variation);
     if (overridePrompt) {
       // A hand-written prompt is used once; further tries fall back to the prompter with feedback.
-      record.overrides = { prompt: null, instruction: record.overrides?.instruction ?? null };
+      record.overrides = {
+        prompt: null,
+        instruction: record.overrides?.instruction ?? null,
+        variation,
+      };
     }
     record.cost_usd += promptRes.costUsd;
     const started = Date.now();
@@ -115,7 +120,11 @@ async function produceKeyframe(
         prompt: promptRes.data.prompt,
         prompt_version: promptRes.promptVersion,
         refs: refs.map((r) => run.rel(r)),
-        params: { negative_prompt: promptRes.data.negative_prompt, seed: res.seed },
+        params: {
+          negative_prompt: promptRes.data.negative_prompt,
+          seed: res.seed,
+          ...(variation ? { variation_strength: variation } : {}),
+        },
         latency_ms: res.latencyMs,
         cost_usd: res.costUsd,
         status: qc.pass ? "ok" : "rejected",

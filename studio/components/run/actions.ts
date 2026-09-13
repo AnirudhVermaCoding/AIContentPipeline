@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  CreativeSettingsView,
   EditImpact,
   JobView,
   RegenerationEstimate,
@@ -10,12 +11,21 @@ import type {
 import { useCallback, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 
+export type Variation = CreativeSettingsView["variation_options"][number]["id"];
+
 export interface KeyframeDecisionInput {
   shotId: string;
   decision: "approve" | "reject";
   note?: string | null;
   instruction?: string | null;
   prompt?: string | null;
+  /** How far the regenerated version may move from the current one. */
+  variation?: Variation | null;
+}
+
+export interface PlanningRegenerationInput {
+  variation?: Variation;
+  instruction?: string | null;
 }
 
 export interface ActionResult {
@@ -54,9 +64,20 @@ export function useRunActions(runId: string, onDone?: () => void | Promise<void>
       call("approve-storyboard", () =>
         apiPost<ActionResult>(`${base}/actions/approve-storyboard`, {}),
       ),
-    regenerateStoryboard: () =>
+    regenerateStoryboard: (req: PlanningRegenerationInput = {}) =>
       call("regenerate-storyboard", () =>
-        apiPost<ActionResult>(`${base}/actions/regenerate-storyboard`, {}),
+        apiPost<ActionResult>(`${base}/actions/regenerate-storyboard`, req),
+      ),
+    regenerateConcept: (req: PlanningRegenerationInput = {}) =>
+      call("regenerate-concept", () =>
+        apiPost<ActionResult>(`${base}/actions/regenerate-concept`, req),
+      ),
+    regenerateShot: (shotId: string, req: PlanningRegenerationInput = {}) =>
+      call("regenerate-shot", () =>
+        apiPost<ActionResult>(`${base}/actions/storyboard/regenerate-shot`, {
+          shot_id: shotId,
+          ...req,
+        }),
       ),
     previewEdit: (req: StoryboardEditRequest) =>
       apiPost<EditImpact>(`${base}/storyboard/preview`, req),
@@ -80,9 +101,17 @@ export function useRunActions(runId: string, onDone?: () => void | Promise<void>
           resume,
         }),
       ),
-    regenerateClip: (shotId: string, instruction: string | null) =>
+    regenerateClip: (
+      shotId: string,
+      instruction: string | null,
+      variation: Variation | null = null,
+    ) =>
       call("regenerate-clip", () =>
-        apiPost<ActionResult>(`${base}/actions/clips/regenerate`, { shot_id: shotId, instruction }),
+        apiPost<ActionResult>(`${base}/actions/clips/regenerate`, {
+          shot_id: shotId,
+          instruction,
+          variation,
+        }),
       ),
     selectClipVersion: (shotId: string, attempt: number) =>
       call("select-clip", () =>

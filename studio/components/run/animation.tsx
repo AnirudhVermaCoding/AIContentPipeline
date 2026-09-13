@@ -6,6 +6,7 @@ import { useState } from "react";
 import { CostSourceBadge, Money } from "@/components/money";
 import type { RunActions } from "@/components/run/actions";
 import { ConfirmSpendDialog } from "@/components/run/confirm-spend";
+import { type Variation, VariationPicker } from "@/components/run/variation-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner, SectionTitle } from "@/components/ui/misc";
@@ -27,6 +28,7 @@ export function AnimationView({
   onChanged: () => void;
 }) {
   const [regen, setRegen] = useState<ShotView | null>(null);
+  const [variation, setVariation] = useState<Variation>("fresh");
   const [still, setStill] = useState<ShotView | null>(null);
   const shots = detail.shots;
   const stage = detail.stages.find((s) => s.id === "animate");
@@ -211,7 +213,12 @@ export function AnimationView({
       {regen ? (
         <ConfirmSpendDialog
           open
-          onOpenChange={(o) => !o && setRegen(null)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setRegen(null);
+              setVariation("fresh");
+            }
+          }}
           title={`Regenerate clip for ${regen.shot_id.replace("shot_", "Shot ")}`}
           description={`Only this shot is regenerated; the current clip is kept as a previous version and the edit and render re-run afterwards (no extra provider cost).`}
           instruction={{
@@ -222,13 +229,16 @@ export function AnimationView({
           confirmLabel="Confirm regenerate"
           busy={actions.busy === "regenerate-clip"}
           onConfirm={async (instruction) => {
-            const r = await actions.regenerateClip(regen.shot_id, instruction || null);
+            const r = await actions.regenerateClip(regen.shot_id, instruction || null, variation);
             if (r) {
               setRegen(null);
+              setVariation("fresh");
               onChanged();
             }
           }}
-        />
+        >
+          <VariationPicker value={variation} onChange={setVariation} name="clip-variation" />
+        </ConfirmSpendDialog>
       ) : null}
       {still ? (
         <ConfirmSpendDialog

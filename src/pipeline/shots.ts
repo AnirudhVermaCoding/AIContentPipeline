@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { promptVersions } from "../agents/prompts.js";
+import { creativeHashInputs } from "../creative/controls.js";
 import type { ContinuityBible } from "../schema/continuity.js";
 import type { ShotRoute } from "../schema/routing.js";
 import { type ShotRecord, ShotRecordSchema } from "../schema/shot.js";
@@ -39,6 +40,8 @@ export function computeShotHash(
     image: run.manifest.providers.image,
     video: run.manifest.providers.video,
     brand: run.manifest.brand_config_version,
+    // Creative controls shape the image/motion prompts; absent on pre-control runs (same hash).
+    ...creativeHashInputs(run.manifest),
   });
 }
 

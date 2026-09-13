@@ -17,13 +17,25 @@ import type {
   ReservationRow,
 } from "../budget/ledger.js";
 import type { CostReport } from "../cost/report.js";
+import type {
+  ControlRange,
+  ControlSource,
+  CreativePreset,
+  VariationOption,
+} from "../creative/controls.js";
 import type { GenerationRow } from "../db/repos.js";
 import type { Decision, PipelineEvent } from "../pipeline/events.js";
+import type { DirectorRecord } from "../pipeline/stages/00-brief.js";
 import type { ShotProgress } from "../pipeline/stages/08-animate.js";
 import type { RenderProgressFile } from "../pipeline/stages/11-render.js";
 import type { CostSource, NormalizedUsage } from "../providers/types.js";
 import type { CreativeBrief } from "../schema/brief.js";
 import type { ContinuityBible } from "../schema/continuity.js";
+import type {
+  CreativeControls,
+  PendingRegeneration,
+  VariationStrength,
+} from "../schema/creative.js";
 import type { Edl } from "../schema/edl.js";
 import type { RunManifest, RunStatus, StageStatus } from "../schema/manifest.js";
 import type { FinalQcReport } from "../schema/qc.js";
@@ -149,6 +161,23 @@ export interface AssetView {
   created_at: string;
 }
 
+/** Resolved creative controls with labels; `sources` says where each value came from. */
+export interface CreativeView extends CreativeControls {
+  creative_label: string;
+  goal_label: string;
+  sources: { creative_freedom: ControlSource; goal_focus: ControlSource };
+  /** Matching preset id, when the pair equals one of the presets. */
+  preset: string | null;
+}
+
+export interface CreativeSettingsView {
+  defaults: CreativeControls;
+  presets: CreativePreset[];
+  creative_ranges: ControlRange[];
+  goal_ranges: ControlRange[];
+  variation_options: VariationOption[];
+}
+
 export interface BrandSummary {
   id: string;
   name: string;
@@ -167,6 +196,8 @@ export interface BrandSummary {
   budget: BrandProfile["budget"];
   voice_configured: boolean;
   products_count: number;
+  /** The brand's default creative controls (brand.yaml `creative_defaults`, else the fallbacks). */
+  creative: CreativeView;
 }
 
 export interface BrandDetail extends BrandSummary {
@@ -256,6 +287,8 @@ export interface VersionView {
   prompt_version: string;
   refs: Array<{ path: string; url: string }>;
   params: Record<string, unknown>;
+  /** Variation strength the operator chose when this version was regenerated (null otherwise). */
+  variation_strength: VariationStrength | null;
   checks: ShotAttempt["checks"];
   latency_ms: number;
   error: string | null;
@@ -366,6 +399,8 @@ export interface PreflightView {
   emotional_arc: CreativeBrief["emotional_arc"] | null;
   alternatives: RoutingPlan["budget_check"]["alternatives"];
   promise: RoutingPlan["promise_check"] | null;
+  /** The run's creative controls and how many concept candidates the director drafts. */
+  creative: { controls: CreativeView; candidate_count: number };
 }
 
 export interface JobView extends JobRow {
@@ -415,11 +450,18 @@ export interface RunSummary {
   job: JobView | null;
   brand_config_version: string;
   models: string[];
+  creative: CreativeView;
 }
 
 export interface RunDetail {
   run: RunSummary;
   manifest: RunManifest;
+  /** Creative controls the run generates with, plus the director's candidates when drafted. */
+  creative: {
+    controls: CreativeView;
+    director: DirectorRecord | null;
+    pending_regeneration: PendingRegeneration | null;
+  };
   brand: BrandSummary;
   product: ProductView | null;
   stages: StageView[];
@@ -553,6 +595,31 @@ export interface CreateVideoRequest {
       >
     >;
   };
+  /** Creative controls for this run; omitted fields fall back to the brand's defaults. */
+  creative?: { creative_freedom?: number; goal_focus?: number } | null;
+}
+
+/** What Duplicate prefills: the stored Create Video request, or one rebuilt from the manifest. */
+export interface RunRequestView {
+  source: "stored" | "reconstructed";
+  source_run_id: string;
+  request: CreateVideoRequest;
+}
+
+export interface RegenerateStoryboardRequest {
+  variation?: VariationStrength;
+  instruction?: string | null;
+}
+
+export interface RegenerateConceptRequest {
+  variation?: VariationStrength;
+  instruction?: string | null;
+}
+
+export interface RegenerateShotRequest {
+  shot_id: string;
+  variation?: VariationStrength;
+  instruction?: string | null;
 }
 
 export interface CreateVideoResponse {
@@ -585,6 +652,7 @@ export interface StudioSettings {
   }>;
   pricing: { as_of: string; stale: boolean; table: Record<string, unknown> };
   provider_defaults: RunManifest["providers"];
+  creative: CreativeSettingsView;
 }
 
 export interface StoryboardEditRequest {
@@ -617,7 +685,7 @@ export interface EditImpact {
 }
 
 export interface RegenerationEstimate {
-  kind: "keyframe" | "clip" | "storyboard" | "continuity";
+  kind: "keyframe" | "clip" | "storyboard" | "continuity" | "concept" | "storyboard_shot";
   shot_id: string | null;
   estimate_usd: number;
   breakdown: Array<{ item: string; usd: number; note: string }>;

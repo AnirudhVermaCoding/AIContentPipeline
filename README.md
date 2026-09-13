@@ -71,6 +71,23 @@ Wallet defaults come from `brand.yaml → budget.wallet` the first time the stud
 (Bachalogy: ₹4,000 wallet, ₹500/day, ₹900/48 h); edit them afterwards under Budget & Usage.
 Provider costs are recorded in USD and shown in INR with a rate you set in Settings.
 
+### Creative controls
+
+Create Video has two dials, **Creative Freedom** (Safe → Wild, how adventurous the creative
+direction may be) and **Goal Focus** (Explore → Goal-first, how strongly every decision serves the
+video's goal), with presets (Direct Ad, Creative Ad, Brand Film, Experimental). They are per-run
+inputs, default to the brand's `creative_defaults` in `brand.yaml` (else 0.65 / 0.85), are stored
+on the run so later brand edits never change it, and are shown in the preflight, the run header
+and the provenance of every generated asset. They shape the prompts of the Creative Director,
+screenwriter, storyboard artist and image/motion prompters (stage by stage, through one shared
+helper in `src/creative/controls.ts`) and the deterministic edit decision; they are **not**
+model temperature, and product identity, claims, brand rules, continuity, QC thresholds and the
+budget cap never loosen at any setting. Higher freedom asks the director for two or three concept
+candidates in one call, and the estimate says so. Every regeneration (concept, storyboard, one
+storyboard shot, keyframe, clip) also asks *how different* the new version should be (small
+variation, fresh direction, completely different) and records the answer on that version. See
+`docs/adr/0006-creative-controls.md`.
+
 ## Commands
 
 | Command | What it does |
@@ -80,6 +97,7 @@ Provider costs are recorded in USD and shown in INR with a rate you set in Setti
 | `  --approve-keyframes` | Pause after keyframes so you can approve or reject them |
 | `  --budget <usd>` | Override the absolute hard cap (default from the brand, $2.50) |
 | `  --ai-video-seconds <n>` | Override the soft target of generated video seconds (default 15) |
+| `  --creative-freedom <0-1>` / `--goal-focus <0-1>` | Creative controls for this run (default: the brand's `creative_defaults`, else 0.65 / 0.85) |
 | `  --until <stage>` | Stop after a stage (`brief`, `research`, `script`, `voice`, `storyboard`, `continuity`, `route`, `keyframes`, `animate`, `audio`, `edit`, `render`, `final_qc`, `report`) |
 | `  --mock` | Offline mock providers (also `PROVIDER_MODE=mock`) |
 | `pnpm cli resume <run_id> [--budget <usd>] [--pin-brand]` | Continue after a failure, a budget stop or an approval pause (`--pin-brand` keeps the brand snapshot) |
@@ -137,7 +155,7 @@ edit defaults and budget. Reference images and logos go under `brands/<id>/asset
 ## Docs
 
 - `docs/architecture.md` — stages and layout
-- `docs/adr/` — orchestration (why not LangGraph), state and idempotency, model strategy, conditional editing, the studio
+- `docs/adr/` — orchestration (why not LangGraph), state and idempotency, model strategy, conditional editing, the studio, creative controls
 - `docs/ROADMAP.md` — what this MVP deliberately leaves for later
 - `docs/THIRD_PARTY_NOTICES.md` — adapted MIT code (OpenReels)
 

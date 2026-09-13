@@ -77,6 +77,7 @@ async function animate(
   const keyframeAbs = run.abs(record.keyframe.path);
   const attempt = nextAttemptNumber(run, shot.id, "video", record);
   const feedback = record.overrides?.instruction ?? null;
+  const variation = record.overrides?.variation ?? null;
   const promptRes = await runMotionPrompter(
     run,
     stageId,
@@ -85,6 +86,7 @@ async function animate(
     seconds,
     record.keyframe.prompt,
     feedback,
+    variation,
   );
   record.cost_usd += promptRes.costUsd;
   const started = Date.now();
@@ -144,7 +146,12 @@ async function animate(
       prompt: promptRes.data.prompt,
       prompt_version: promptRes.promptVersion,
       refs: [record.keyframe.path],
-      params: { duration: seconds, resolution: res.resolution, feedback },
+      params: {
+        duration: seconds,
+        resolution: res.resolution,
+        feedback,
+        ...(variation ? { variation_strength: variation } : {}),
+      },
       latency_ms: res.latencyMs,
       cost_usd: res.costUsd,
       status: "ok",

@@ -7,7 +7,7 @@ storage.
 ## Stages
 
 ```
-00 brief        Brand Brain (deterministic brand context) + Creative Director (LLM)   → CreativeBrief
+00 brief        Brand Brain (deterministic brand context) + Creative Director (LLM)   → CreativeBrief (+ director.json: candidates, controls)
 01 research     LLM with web search; depth chosen by the brief (none | light | deep)   → ResearchNotes
 02 script       LLM                                                                    → Script (narration lines, or music-only)
 03 voice        TTS per narration line, concatenated with gaps → exact line timings   → voice.mp3 + timings
@@ -42,6 +42,8 @@ produced (and optionally approved) before any paid animation.
 - `src/qc` — deterministic checks (storyboard risk, keyframe, final); vision judges slot in later.
 - `src/cli` — `brands | run | resume | rerun | approve | inspect | report | runs | music`.
 - `src/budget` — brand-level wallet, daily and 48-hour limits with transactional holds (studio + CLI).
+- `src/creative` — Creative Freedom / Goal Focus interpretation (ranges, presets, per-stage prompt
+  guidance, the locked-rules list) and variation strength for regenerations; see ADR-0006.
 - `src/studio` — the studio API (Hono), job supervisor/runner, services; `studio/` — the Next.js UI.
 - `brands/<id>/products/<pid>/product.yaml` — product catalog with reference photos merged into a run's profile.
 - `runs/<brand>/<run_id>/` — artifacts (source of truth); `data/pipeline.db` — index + ledger.

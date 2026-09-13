@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { controlsForRun, creativeHashInputs } from "../../creative/controls.js";
 import { AudioPlanSchema } from "../../schema/audio.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
 import { type EditMode, OUTPUT } from "../../schema/common.js";
@@ -26,10 +27,17 @@ export const editStage: StageDef = {
     edit: run.brand.profile.edit_defaults,
     text: run.brand.profile.text_policy,
     cta: run.brand.profile.cta,
+    ...creativeHashInputs(run.manifest),
   }),
   async run(ctx) {
     const { run } = ctx;
     const b = run.brand.profile;
+    // Creative controls (medium influence, deterministic): freedom scales still motion inside the
+    // brand's bound; goal focus trims decorative overlays. No new effects, no fake transitions.
+    const controls = controlsForRun(run);
+    const cf = controls.creative_freedom;
+    const gf = controls.goal_focus;
+    const motionScale = cf <= 0.4 ? 0.6 : cf <= 0.6 ? 0.8 : 1;
     const brief = ctx.input("brief", CreativeBriefSchema);
     const storyboard = ctx.input("storyboard", StoryboardArtifactSchema);
     const voice = ctx.input("voice", VoiceResultSchema);
@@ -61,7 +69,9 @@ export const editStage: StageDef = {
         duration_s: shot.duration_s,
         treatment,
         treatment_amount:
-          treatment === "hold" || treatment === "none" ? 0 : b.edit_defaults.still_motion_amount,
+          treatment === "hold" || treatment === "none"
+            ? 0
+            : Math.round(b.edit_defaults.still_motion_amount * motionScale * 100) / 100,
         fit: "cover",
       });
     });
@@ -86,6 +96,23 @@ export const editStage: StageDef = {
           style: shot.text_overlay.role === "hook" ? "brand_heading" : "brand_body",
         });
       });
+      if (gf < 0.3 && overlays.some((o) => o.role === "emphasis")) {
+        overlays = overlays.filter((o) => o.role !== "emphasis");
+        reasons.push("low goal focus: emphasis overlays dropped in favour of mood");
+      }
+      if (
+        gf >= 0.8 &&
+        brief.text_overlay_intent === "captions" &&
+        (b.text_policy.captions === "when_needed" || b.text_policy.captions === "always")
+      ) {
+        const hook = overlays.find((o) => o.role === "hook");
+        const cta = overlays.find((o) => o.role === "cta");
+        const keep = [hook, cta].filter((o): o is TextOverlay => !!o);
+        if (keep.length && keep.length < overlays.length) {
+          overlays = keep;
+          reasons.push("goal-first: overlays limited to the hook and the call to action");
+        }
+      }
       if (
         b.text_policy.captions === "brand_hook_only" ||
         brief.text_overlay_intent === "hook_only"
@@ -94,6 +121,9 @@ export const editStage: StageDef = {
         overlays = hook ? [hook] : [];
       }
     }
+    reasons.push(
+      `creative freedom ${controls.creative_label} ${cf.toFixed(2)} (still motion ×${motionScale}), goal focus ${controls.goal_label} ${gf.toFixed(2)}`,
+    );
     const wantsCaptions =
       brief.text_overlay_intent === "captions" &&
       (b.text_policy.captions === "when_needed" || b.text_policy.captions === "always") &&

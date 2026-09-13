@@ -3,6 +3,7 @@ import { DEFAULT_PROVIDERS, snapshotProviders } from "../../config/settings.js";
 import type { Db } from "../../db/sqlite.js";
 import { nowIso } from "../../util/fs.js";
 import type { StudioSettings } from "../api-types.js";
+import { creativeSettingsView } from "./creative.js";
 
 export const DEFAULT_USD_INR = 84;
 
@@ -61,6 +62,7 @@ export function getStudioSettings(db: Db): StudioSettings {
       table: PRICING as unknown as Record<string, unknown>,
     },
     provider_defaults: snapshotProviders(DEFAULT_PROVIDERS),
+    creative: creativeSettingsView(),
   };
 }
 

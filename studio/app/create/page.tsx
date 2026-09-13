@@ -5,10 +5,13 @@ import type {
   CreateVideoRequest,
   CreateVideoResponse,
   ProductView,
+  RunRequestView,
 } from "@pipeline/studio/api-types";
-import { AlertTriangle, ChevronDown, ChevronUp, ShieldCheck, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ChevronDown, ChevronUp, Copy, ShieldCheck, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { CreativeControlsEditor, type CreativeValues } from "@/components/creative-controls";
 import { Money } from "@/components/money";
 import { ProductReferenceStrip } from "@/components/product-refs";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +34,22 @@ const PLATFORMS = [
 ];
 
 export default function CreatePage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-64" />}>
+      <CreateForm />
+    </Suspense>
+  );
+}
+
+function CreateForm() {
   const { brandId, brands, settings } = useStudio();
   const router = useRouter();
+  const params = useSearchParams();
+  const from = params.get("from");
   const brand = useApi<BrandDetail>(brandId ? `/api/brands/${brandId}` : null, { deps: [brandId] });
+  const prefill = useApi<RunRequestView>(from ? `/api/runs/${from}/request` : null, {
+    deps: [from],
+  });
   const [productId, setProductId] = useState<string>("");
   const [goal, setGoal] = useState("");
   const [topic, setTopic] = useState("");
@@ -54,22 +70,72 @@ export default function CreatePage() {
   );
   const [mode, setMode] = useState<"live" | "mock">("live");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [creative, setCreative] = useState<CreativeValues | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateVideoResponse | null>(null);
 
   const products = brand.data?.products ?? [];
   const product: ProductView | null = products.find((p) => p.id === productId) ?? null;
+  const rate = settings?.fx.rate ?? 84;
+
+  // Duplicate: apply the source run's request first, so brand defaults do not overwrite it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: apply once when the prefill loads
+  useEffect(() => {
+    const r = prefill.data?.request;
+    if (!r || prefilled) return;
+    setProductId(r.product_id ?? "");
+    setGoal(r.goal ?? "");
+    setTopic(r.topic ?? "");
+    setAudience(r.audience ?? "");
+    setDuration(r.duration_s ? String(r.duration_s) : "");
+    if (r.platform) setPlatform(r.platform);
+    setDirection(r.creative_direction ?? "");
+    setCta(r.cta ?? "");
+    setNotes(r.notes ?? "");
+    setTitle(r.title ? `${r.title} (copy)` : "");
+    setBudget(
+      r.advanced.budget_override_usd != null
+        ? String(
+            settings?.display_currency === "USD"
+              ? r.advanced.budget_override_usd
+              : Math.round(r.advanced.budget_override_usd * rate),
+          )
+        : "",
+    );
+    setAiSeconds(r.advanced.ai_video_seconds != null ? String(r.advanced.ai_video_seconds) : "");
+    setVoice(r.advanced.voice);
+    setMusic(r.advanced.music);
+    setApproval(r.advanced.approval_mode);
+    setMode(r.advanced.provider_mode);
+    setOverrides(
+      Object.fromEntries(
+        Object.entries(r.advanced.provider_overrides ?? {}).map(([k, v]) => [k, v?.model ?? ""]),
+      ),
+    );
+    if (r.creative?.creative_freedom != null && r.creative?.goal_focus != null)
+      setCreative({
+        creative_freedom: r.creative.creative_freedom,
+        goal_focus: r.creative.goal_focus,
+      });
+    setPrefilled(true);
+  }, [prefill.data]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: prefill once when the brand loads
   useEffect(() => {
-    if (brand.data) {
-      if (!audience) setAudience(brand.data.audience);
-      if (!productId && products.length) setProductId(products[0]?.id ?? "");
-      if (!cta && brand.data.profile.cta.patterns[0]) setCta(brand.data.profile.cta.patterns[0]);
-    }
-  }, [brand.data]);
+    if (!brand.data) return;
+    if (from && !prefilled) return;
+    if (!audience) setAudience(brand.data.audience);
+    if (!productId && products.length && !prefilled) setProductId(products[0]?.id ?? "");
+    if (!cta && brand.data.profile.cta.patterns[0]) setCta(brand.data.profile.cta.patterns[0]);
+    if (!creative)
+      setCreative({
+        creative_freedom: brand.data.creative.creative_freedom,
+        goal_focus: brand.data.creative.goal_focus,
+      });
+  }, [brand.data, prefilled]);
 
-  const rate = settings?.fx.rate ?? 84;
   const capUsd = brand.data?.budget.hard_cap_usd ?? 2.5;
   const canSubmit = !!brandId && topic.trim().length > 0 && goal.trim().length > 0 && !submitting;
   const hardBlocked = useMemo(
@@ -79,6 +145,10 @@ export default function CreatePage() {
       product.reference_count < product.profile.reference_policy.min,
     [product],
   );
+  const brandMismatch =
+    prefill.data && brandId && prefill.data.request.brand_id !== brandId
+      ? prefill.data.request.brand_id
+      : null;
 
   async function submit() {
     if (!brandId) return;
@@ -112,6 +182,9 @@ export default function CreatePage() {
               .map(([k, v]) => [k, { model: v.trim() }]),
           ),
         },
+        creative: creative
+          ? { creative_freedom: creative.creative_freedom, goal_focus: creative.goal_focus }
+          : null,
       };
       const res = await apiPost<CreateVideoResponse>("/api/runs", body);
       setResult(res);
@@ -128,8 +201,28 @@ export default function CreatePage() {
     <div className="space-y-6">
       <PageHeader
         title="Create Video"
-        description="Choose a product, describe the goal, and the Creative Director, Storyboard artist and Router decide shots, cameras, models and pacing. You review the plan before production spends money."
+        description="Choose a product, describe the goal, set how adventurous and how goal-driven the creative team should be, and the Creative Director, Storyboard artist and Router decide shots, cameras, models and pacing. You review the plan before production spends money."
       />
+      {from ? (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-fg-muted">
+          <Copy className="h-3.5 w-3.5" />
+          <span>
+            Prefilled from run{" "}
+            <Link href={`/runs/${from}`} className="mono underline-offset-2 hover:underline">
+              {from}
+            </Link>
+            {prefill.data?.source === "reconstructed"
+              ? " (rebuilt from the run's manifest; the original form was not stored)"
+              : ""}
+            . Edit anything, including the creative controls, before starting.
+          </span>
+        </div>
+      ) : null}
+      {brandMismatch ? (
+        <ErrorBanner
+          message={`The source run belongs to brand "${brandMismatch}", but "${brandId}" is selected. Switch brands in the top bar to duplicate it faithfully.`}
+        />
+      ) : null}
       {result?.blocked ? (
         <div className="rounded-md border border-danger/30 bg-danger-bg px-4 py-3 text-sm text-danger">
           <p className="font-medium">Not started: {result.blocked.rule} rule</p>
@@ -139,7 +232,7 @@ export default function CreatePage() {
           </p>
         </div>
       ) : null}
-      <ErrorBanner message={error} />
+      <ErrorBanner message={error ?? prefill.error} />
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-5">
           <Card>
@@ -241,6 +334,40 @@ export default function CreatePage() {
                   placeholder="Anything else the team should know"
                 />
               </Field>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Creative Controls</CardTitle>
+              <span className="text-xs text-fg-muted">
+                How adventurous the team may be, and how hard it optimises for the goal
+              </span>
+            </CardHeader>
+            <CardContent>
+              {creative ? (
+                <CreativeControlsEditor
+                  value={creative}
+                  onChange={setCreative}
+                  settings={settings?.creative}
+                  brandDefault={
+                    brand.data
+                      ? {
+                          creative_freedom: brand.data.creative.creative_freedom,
+                          goal_focus: brand.data.creative.goal_focus,
+                        }
+                      : null
+                  }
+                  compact
+                />
+              ) : (
+                <Skeleton className="h-24" />
+              )}
+              <p className="mt-3 text-[11px] text-fg-subtle">
+                The two dials are independent: high freedom with high goal focus means "find a
+                highly original way to accomplish the goal". Product identity, claims, brand rules,
+                continuity and the budget cap never loosen. Model sampling is not exposed.
+              </p>
             </CardContent>
           </Card>
 
@@ -425,6 +552,10 @@ export default function CreatePage() {
               <p>
                 Planning (creative direction, script, narration, storyboard) is charged; media
                 generation waits for your approval.
+              </p>
+              <p>
+                Higher creative freedom asks the director for more concept candidates in one call;
+                the preflight shows that cost before anything else is spent.
               </p>
               <p>
                 Every figure in the studio is labelled: provider-reported, calculated from usage, or

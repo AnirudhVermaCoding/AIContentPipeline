@@ -1,6 +1,12 @@
 import { z } from "zod";
+import {
+  buildCreativeControlContext,
+  controlsForRun,
+  hardConstraintsFor,
+} from "../creative/controls.js";
 import type { RunContext } from "../pipeline/run.js";
 import type { ContinuityBible } from "../schema/continuity.js";
+import type { VariationStrength } from "../schema/creative.js";
 import type { Shot } from "../schema/storyboard.js";
 import { type AgentResult, callAgent } from "./base.js";
 
@@ -15,8 +21,22 @@ export async function runMotionPrompter(
   clipSeconds: number,
   keyframePrompt: string,
   feedback: string | null = null,
+  variation: VariationStrength | null = null,
 ): Promise<AgentResult<MotionPrompt>> {
   const per = continuity.per_shot.find((p) => p.shot_id === shot.id);
+  const controls = controlsForRun(run);
+  const creative = buildCreativeControlContext({
+    creativeFreedom: controls.creative_freedom,
+    goalFocus: controls.goal_focus,
+    stage: "video",
+    hardConstraints: [
+      ...(per?.identity_blocks ?? []).map((b) => `Identity block (restate briefly): ${b}`),
+      `Realism lock: ${continuity.locks.realism}`,
+      "The keyframe fixes subject, setting and light: no new elements, no new people, no text.",
+      ...hardConstraintsFor(run.brand),
+    ],
+    variation: variation ? { strength: variation, target: "clip" } : null,
+  });
   const userMessage = `# Motion prompt for ${shot.id} (${clipSeconds} s clip)
 The keyframe was generated from: ${keyframePrompt}
 
@@ -26,7 +46,9 @@ Intent: ${shot.shot_intent}
 Identity blocks: ${per?.identity_blocks.join(" | ") || "none"}
 Realism lock: ${continuity.locks.realism}
 ${feedback ? `\n## Feedback from the previous clip\n${feedback}\n` : ""}
-Return one motion prompt.`;
+${creative.text}
+
+Return one motion prompt (40 to 90 words).`;
   return callAgent(run, {
     name: "motion-prompter",
     tier: "fast",

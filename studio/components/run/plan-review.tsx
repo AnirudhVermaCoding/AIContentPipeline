@@ -12,6 +12,7 @@ import {
   Check,
   Copy,
   GripVertical,
+  Lightbulb,
   Pencil,
   RefreshCw,
   Trash2,
@@ -21,6 +22,7 @@ import { useMemo, useState } from "react";
 import { Money } from "@/components/money";
 import type { RunActions } from "@/components/run/actions";
 import { ConfirmSpendDialog } from "@/components/run/confirm-spend";
+import { type Variation, VariationPicker } from "@/components/run/variation-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -139,6 +141,33 @@ export function PreflightPanel({
             <div>
               <dt className="text-xs text-fg-muted">Motion promise</dt>
               <dd>{preflight.promise ? (preflight.promise.satisfied ? "met" : "not met") : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-fg-muted">Creative Freedom</dt>
+              <dd>
+                {preflight.creative.controls.creative_label} ·{" "}
+                <span className="num">
+                  {preflight.creative.controls.creative_freedom.toFixed(2)}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-fg-muted">Goal Focus</dt>
+              <dd>
+                {preflight.creative.controls.goal_label} ·{" "}
+                <span className="num">{preflight.creative.controls.goal_focus.toFixed(2)}</span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-fg-muted">Concept candidates</dt>
+              <dd>
+                {preflight.creative.candidate_count}
+                <span className="text-xs text-fg-subtle">
+                  {preflight.creative.candidate_count > 1
+                    ? " drafted and ranked in one director call"
+                    : " (one concept)"}
+                </span>
+              </dd>
             </div>
           </dl>
           <div className="rounded-lg border border-border bg-surface-2 p-3">
@@ -406,6 +435,11 @@ export function StoryboardCards({
   );
   const [impact, setImpact] = useState<EditImpact | null>(null);
   const [regen, setRegen] = useState(false);
+  const [regenVariation, setRegenVariation] = useState<Variation>("fresh");
+  const [concept, setConcept] = useState(false);
+  const [conceptVariation, setConceptVariation] = useState<Variation>("fresh");
+  const [shotRegen, setShotRegen] = useState<ShotView | null>(null);
+  const [shotVariation, setShotVariation] = useState<Variation>("small");
   const sb = detail.artifacts.storyboard;
   if (!sb) return <p className="text-sm text-fg-muted">The storyboard has not been written yet.</p>;
   const voiceLines = new Map((detail.artifacts.voice?.lines ?? []).map((l) => [l.line_id, l.text]));
@@ -426,9 +460,28 @@ export function StoryboardCards({
         description={`${sb.shots.length} shots · ${sb.total_duration_s.toFixed(1)} s · risk ${sb.risk.verdict} (${sb.risk.score})${sb.visual_through_line ? ` · ${sb.visual_through_line}` : ""}`}
         right={
           editable ? (
-            <Button variant="secondary" size="sm" onClick={() => setRegen(true)}>
-              <RefreshCw /> Regenerate storyboard
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setConceptVariation("fresh");
+                  setConcept(true);
+                }}
+              >
+                <Lightbulb /> Regenerate concept
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setRegenVariation("fresh");
+                  setRegen(true);
+                }}
+              >
+                <RefreshCw /> Regenerate storyboard
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -517,6 +570,16 @@ export function StoryboardCards({
                 </div>
                 {editable ? (
                   <div className="flex flex-wrap gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShotVariation("small");
+                        setShotRegen(shot);
+                      }}
+                    >
+                      <RefreshCw /> Regenerate shot
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => setEditing(shot)}>
                       <Pencil /> Edit
                     </Button>
@@ -650,17 +713,87 @@ export function StoryboardCards({
         onOpenChange={setRegen}
         title="Regenerate the whole storyboard?"
         description={`This calls ${detail.manifest.providers.llm_creative.model} again and re-plans continuity and routing. Existing keyframes stay on disk but every shot is produced again.`}
+        instruction={{
+          label: "Optional instruction",
+          placeholder: "e.g. Open on the product, keep the kitchen scene.",
+        }}
         loadEstimate={() => actions.estimate("storyboard")}
         confirmLabel="Regenerate storyboard"
         busy={actions.busy === "regenerate-storyboard"}
-        onConfirm={async () => {
-          const r = await actions.regenerateStoryboard();
+        onConfirm={async (instruction) => {
+          const r = await actions.regenerateStoryboard({
+            variation: regenVariation,
+            instruction: instruction || null,
+          });
           if (r) {
             setRegen(false);
             onChanged();
           }
         }}
-      />
+      >
+        <VariationPicker value={regenVariation} onChange={setRegenVariation} name="sb-variation" />
+      </ConfirmSpendDialog>
+      <ConfirmSpendDialog
+        open={concept}
+        onOpenChange={setConcept}
+        title="Regenerate the concept?"
+        description="The Creative Director writes a new brief; script, narration, storyboard, continuity and routing follow. Produced keyframes and clips stay on disk as archived versions. The plan comes back for review before production."
+        instruction={{
+          label: "Optional instruction",
+          placeholder: "e.g. No parent in the film; make the toy the narrator.",
+        }}
+        loadEstimate={() => actions.estimate("concept")}
+        confirmLabel="Regenerate concept"
+        busy={actions.busy === "regenerate-concept"}
+        onConfirm={async (instruction) => {
+          const r = await actions.regenerateConcept({
+            variation: conceptVariation,
+            instruction: instruction || null,
+          });
+          if (r) {
+            setConcept(false);
+            onChanged();
+          }
+        }}
+      >
+        <VariationPicker
+          value={conceptVariation}
+          onChange={setConceptVariation}
+          name="concept-variation"
+        />
+      </ConfirmSpendDialog>
+      {shotRegen ? (
+        <ConfirmSpendDialog
+          open
+          onOpenChange={(o) => !o && setShotRegen(null)}
+          title={`Regenerate ${shotRegen.shot_id.replace("shot_", "Shot ")}`}
+          description="Only this shot is rewritten; its narration lines, story role and entities stay fixed and every other shot keeps its text and produced assets. The plan comes back for review before production."
+          instruction={{
+            label: "What should change?",
+            placeholder: "e.g. Lower the camera to the child's height.",
+          }}
+          loadEstimate={() => actions.estimate("storyboard_shot", shotRegen.shot_id)}
+          confirmLabel="Regenerate shot"
+          busy={actions.busy === "regenerate-shot"}
+          onConfirm={async (instruction) => {
+            const r = await actions.regenerateShot(shotRegen.shot_id, {
+              variation: shotVariation,
+              instruction: instruction || null,
+            });
+            if (r) {
+              setShotRegen(null);
+              onChanged();
+            }
+          }}
+        >
+          <p className="text-xs text-fg-muted">{shotRegen.storyboard?.description}</p>
+          <VariationPicker
+            value={shotVariation}
+            onChange={setShotVariation}
+            name="shot-variation"
+          />
+        </ConfirmSpendDialog>
+      ) : null}
       <div className="text-xs text-fg-subtle">
         <Wand2 className="mr-1 inline h-3 w-3" />
         Shot count, camera language, FLUX vs H3 routing and pacing were decided by the Creative

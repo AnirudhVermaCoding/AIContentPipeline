@@ -1,9 +1,13 @@
+import * as path from "node:path";
 import { loadBrandForRun } from "../../brand/loader.js";
 import type { BrandProfile } from "../../brand/schema.js";
 import { type ProviderOverrides, resolveProviders } from "../../config/settings.js";
+import { controlsForRun } from "../../creative/controls.js";
 import { createRun } from "../../pipeline/run.js";
 import type { RunOptions } from "../../schema/manifest.js";
+import { writeJsonAtomic } from "../../util/fs.js";
 import type { CreateVideoRequest, CreateVideoResponse } from "../api-types.js";
+import { parseCreativeInput, STUDIO_REQUEST_FILE } from "./creative.js";
 import { budgetCheckView, preflightView, prePlanEstimate } from "./estimates.js";
 import { jobView, type StudioContext, summaryFromManifest } from "./runs.js";
 
@@ -92,6 +96,8 @@ export async function createVideo(
       );
   }
   const approval = req.advanced.approval_mode;
+  // Reject out-of-range creative controls at the boundary (never clamp).
+  const creative = parseCreativeInput(req.creative);
   const options: RunOptions = {
     provider_mode: req.advanced.provider_mode,
     approve_keyframes: approval === "storyboard_and_keyframes" || approval === "keyframes_only",
@@ -101,6 +107,8 @@ export async function createVideo(
     dry_run: approval === "storyboard_and_keyframes" || approval === "storyboard_only",
     brand_source: "snapshot",
     continuity_merge: "preserve_unchanged",
+    ...(creative?.creative_freedom != null ? { creative_freedom: creative.creative_freedom } : {}),
+    ...(creative?.goal_focus != null ? { goal_focus: creative.goal_focus } : {}),
   };
   const title =
     req.title?.trim() ||
@@ -117,6 +125,15 @@ export async function createVideo(
     profilePatch: profilePatchFor(req),
     quiet: true,
   });
+  // Keep the request as received (with the controls the run resolved) so Duplicate can prefill it.
+  writeJsonAtomic(path.join(run.runDir, STUDIO_REQUEST_FILE), {
+    ...req,
+    creative: {
+      creative_freedom: run.options.creative_freedom,
+      goal_focus: run.options.goal_focus,
+    },
+  } satisfies CreateVideoRequest);
+  const resolved = controlsForRun(run);
   run.repos.audit({
     actor,
     action: "run.create",
@@ -128,6 +145,9 @@ export async function createVideo(
       product_id: req.product_id ?? null,
       approval_mode: approval,
       provider_mode: req.advanced.provider_mode,
+      creative_freedom: resolved.creative_freedom,
+      goal_focus: resolved.goal_focus,
+      creative_sources: resolved.sources,
     },
   });
   const settings = resolveProviders(run.brand.profile, providerOverrides(req));
@@ -137,6 +157,7 @@ export async function createVideo(
     narration: req.advanced.voice,
     referenceCount: brand.product?.references.filter((r) => r.exists).length ?? 0,
     hardCapUsd: run.manifest.cost.hard_cap_usd,
+    creativeFreedom: resolved.creative_freedom,
   });
   const hold = run.manifest.cost.hard_cap_usd;
   const budget = budgetCheckView(ctx.ledger, req.brand_id, hold, {

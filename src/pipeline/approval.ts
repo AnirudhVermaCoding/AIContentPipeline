@@ -1,7 +1,8 @@
 import { probeImage, probeMedia } from "../media/probe.js";
+import type { VariationStrength } from "../schema/creative.js";
 import type { ShotRecord } from "../schema/shot.js";
 import { StoryboardArtifactSchema } from "../schema/storyboard.js";
-import { exists } from "../util/fs.js";
+import { exists, nowIso } from "../util/fs.js";
 import type { RunContext } from "./run.js";
 import { resetFrom } from "./runner.js";
 import { loadShotRecord, saveShotRecord } from "./shots.js";
@@ -22,6 +23,8 @@ export interface KeyframeDecision {
   instruction?: string | null;
   /** Hand-edited prompt used verbatim on regeneration (skips the image prompter). */
   prompt?: string | null;
+  /** How far the new version may move from the current one. */
+  variation?: VariationStrength | null;
 }
 
 export interface ApprovalSummary {
@@ -61,7 +64,11 @@ export function applyKeyframeDecisions(
       const note = d.note ?? d.instruction ?? "rejected";
       rec.approval = { status: "rejected", note };
       rec.status = "rejected";
-      rec.overrides = { prompt: d.prompt ?? null, instruction: d.instruction ?? d.note ?? null };
+      rec.overrides = {
+        prompt: d.prompt ?? null,
+        instruction: d.instruction ?? d.note ?? null,
+        variation: d.variation ?? null,
+      };
       summary.rejected += 1;
       run.repos.audit({
         actor: opts.actor,
@@ -70,7 +77,12 @@ export function applyKeyframeDecisions(
         target_id: shotId,
         run_id: run.runId,
         shot_id: shotId,
-        details: { note, instruction: d.instruction ?? null, prompt_override: !!d.prompt },
+        details: {
+          note,
+          instruction: d.instruction ?? null,
+          prompt_override: !!d.prompt,
+          variation: d.variation ?? null,
+        },
       });
     } else if (
       d?.decision === "approve" ||
@@ -168,13 +180,14 @@ export function requestClipRegeneration(
   shotId: string,
   instruction: string | null = null,
   actor?: string,
+  variation: VariationStrength | null = null,
 ): ShotRecord {
   const rec = requireRecord(run, shotId);
   if (!rec.keyframe) throw new Error(`${shotId}: no keyframe to animate`);
   rec.video = null;
   rec.final = null;
   rec.status = rec.approval.status === "approved" ? "approved" : "keyframe_ready";
-  rec.overrides = { prompt: rec.overrides?.prompt ?? null, instruction };
+  rec.overrides = { prompt: rec.overrides?.prompt ?? null, instruction, variation };
   saveShotRecord(run, rec);
   run.repos.audit({
     actor,
@@ -183,7 +196,7 @@ export function requestClipRegeneration(
     target_id: shotId,
     run_id: run.runId,
     shot_id: shotId,
-    details: { instruction },
+    details: { instruction, variation },
   });
   resetFrom(run, ALL_STAGES, "animate");
   return rec;
@@ -251,6 +264,72 @@ export async function useStillForShot(
   });
   resetFrom(run, ALL_STAGES, "animate");
   return rec;
+}
+
+export interface PlanningRegenerationRequest {
+  variation: VariationStrength;
+  instruction?: string | null;
+  actor?: string;
+}
+
+/**
+ * Ask the Creative Director for a new concept. Everything after the brief re-runs on resume
+ * (script, narration, storyboard, continuity, routing); produced shots stay on disk as archived
+ * versions. Re-opens the storyboard gate.
+ */
+export function requestConceptRegeneration(
+  run: RunContext,
+  req: PlanningRegenerationRequest,
+): string[] {
+  run.manifest.pending_regeneration = {
+    target: "concept",
+    shot_id: null,
+    variation: req.variation,
+    instruction: req.instruction ?? null,
+    requested_at: nowIso(),
+    actor: req.actor ?? null,
+  };
+  run.manifest.options.dry_run = true;
+  run.save();
+  run.repos.audit({
+    actor: req.actor,
+    action: "concept.regenerate",
+    target_type: "run",
+    target_id: run.runId,
+    run_id: run.runId,
+    details: { variation: req.variation, instruction: req.instruction ?? null },
+  });
+  return resetFrom(run, ALL_STAGES, "brief");
+}
+
+/** Rewrite one storyboard shot; the other shots keep their hashes and produced assets. */
+export function requestStoryboardShotRegeneration(
+  run: RunContext,
+  shotId: string,
+  req: PlanningRegenerationRequest,
+): string[] {
+  if (!storyboardShotIds(run).includes(shotId))
+    throw new Error(`${shotId}: no such shot in the storyboard`);
+  run.manifest.pending_regeneration = {
+    target: "storyboard_shot",
+    shot_id: shotId,
+    variation: req.variation,
+    instruction: req.instruction ?? null,
+    requested_at: nowIso(),
+    actor: req.actor ?? null,
+  };
+  run.manifest.options.dry_run = true;
+  run.save();
+  run.repos.audit({
+    actor: req.actor,
+    action: "storyboard.regenerate_shot",
+    target_type: "shot",
+    target_id: shotId,
+    run_id: run.runId,
+    shot_id: shotId,
+    details: { variation: req.variation, instruction: req.instruction ?? null },
+  });
+  return resetFrom(run, ALL_STAGES, "storyboard");
 }
 
 /** Storyboard sign-off: production may spend from here on. */

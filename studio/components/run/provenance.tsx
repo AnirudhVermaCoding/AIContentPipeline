@@ -1,6 +1,6 @@
 "use client";
 
-import type { RunDetail, VersionView } from "@pipeline/studio/api-types";
+import type { CreativeView, RunDetail, VersionView } from "@pipeline/studio/api-types";
 import { useState } from "react";
 import { CostSourceBadge, Money } from "@/components/money";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,15 @@ import { SectionTitle } from "@/components/ui/misc";
 import { fileUrl } from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 
-function AssetRow({ v, shotId }: { v: VersionView; shotId: string }) {
+function AssetRow({
+  v,
+  shotId,
+  creative,
+}: {
+  v: VersionView;
+  shotId: string;
+  creative: CreativeView;
+}) {
   const [open, setOpen] = useState(false);
   const src = fileUrl(v.url);
   return (
@@ -45,6 +53,9 @@ function AssetRow({ v, shotId }: { v: VersionView; shotId: string }) {
           </Badge>
           <Money usd={v.cost_usd} secondary={false} size="sm" />{" "}
           <CostSourceBadge source={v.cost_source} />
+          {v.variation_strength ? (
+            <Badge variant="outline">variation {v.variation_strength}</Badge>
+          ) : null}
         </div>
         <p className="text-fg-muted">
           {v.provider} {v.model} · prompt v{v.prompt_version}
@@ -67,6 +78,12 @@ function AssetRow({ v, shotId }: { v: VersionView; shotId: string }) {
           <div className="mt-1 rounded bg-surface-2 p-2">
             <p className="whitespace-pre-wrap">{v.prompt}</p>
             <p className="mt-1 text-fg-subtle">Settings: {JSON.stringify(v.params)}</p>
+            <p className="text-fg-subtle">
+              Creative controls (inherited from the run): Creative Freedom {creative.creative_label}{" "}
+              · {creative.creative_freedom.toFixed(2)}, Goal Focus {creative.goal_label} ·{" "}
+              {creative.goal_focus.toFixed(2)}
+              {v.variation_strength ? `; variation strength ${v.variation_strength}` : ""}
+            </p>
             {v.checks.length ? (
               <p className="text-fg-subtle">
                 Checks: {v.checks.map((c) => `${c.id}=${c.status}`).join(", ")}
@@ -82,6 +99,9 @@ function AssetRow({ v, shotId }: { v: VersionView; shotId: string }) {
 
 export function ProvenanceView({ detail }: { detail: RunDetail }) {
   const m = detail.manifest;
+  const creative = detail.creative.controls;
+  const director = detail.creative.director;
+  const chosen = director?.candidates[director.selected_index] ?? null;
   return (
     <div className="space-y-6">
       <Card>
@@ -107,11 +127,71 @@ export function ProvenanceView({ detail }: { detail: RunDetail }) {
             </dd>
             <dt className="text-fg-muted">Options</dt>
             <dd className="text-xs">{`mode ${m.options.provider_mode} · keyframe gate ${m.options.approve_keyframes ? "on" : "off"} · cap $${m.cost.hard_cap_usd} · AI seconds target ${m.cost.ai_video_seconds_target}`}</dd>
+            <dt className="text-fg-muted">Creative controls</dt>
+            <dd className="text-xs">
+              Creative Freedom: {creative.creative_freedom.toFixed(2)} — {creative.creative_label} ·
+              Goal Focus: {creative.goal_focus.toFixed(2)} — {creative.goal_label}
+              <span className="text-fg-subtle">
+                {" "}
+                (
+                {creative.sources.creative_freedom === "run"
+                  ? "set for this run"
+                  : creative.sources.creative_freedom === "brand"
+                    ? "brand default"
+                    : "pipeline default"}
+                {creative.preset ? `, preset ${creative.preset.replace("_", " ")}` : ""})
+              </span>
+            </dd>
+            <dt className="text-fg-muted">Concept candidates</dt>
+            <dd className="text-xs">
+              {director
+                ? director.candidate_count > 1
+                  ? `${director.candidates.length} drafted in one call; chose "${chosen?.title ?? "?"}"${director.ranking.length ? ` · goal-weighted ranking: ${director.ranking.map((r) => `${r.title} ${r.score}`).join(", ")}` : ""}`
+                  : "one concept (creative freedom below 0.5)"
+                : "not recorded (run predates the controls or has not planned yet)"}
+              {director?.regeneration
+                ? ` · regenerated with ${director.regeneration.variation} variation${director.regeneration.instruction ? `: “${director.regeneration.instruction}”` : ""}`
+                : ""}
+            </dd>
+            {m.pending_regeneration ? (
+              <>
+                <dt className="text-fg-muted">Pending regeneration</dt>
+                <dd className="text-xs">
+                  {m.pending_regeneration.target.replace("_", " ")}
+                  {m.pending_regeneration.shot_id ? ` ${m.pending_regeneration.shot_id}` : ""} ·{" "}
+                  {m.pending_regeneration.variation} variation (runs on the next resume)
+                </dd>
+              </>
+            ) : null}
             <dt className="text-fg-muted">Created</dt>
             <dd>
               {formatDate(m.created_at)} by {m.created_by ?? "cli"}
             </dd>
           </dl>
+          {director && director.candidates.length > 1 ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {director.candidates.map((c, i) => (
+                <div
+                  key={c.title}
+                  className={cn(
+                    "rounded-md border p-2 text-xs",
+                    i === director.selected_index ? "border-accent" : "border-border opacity-80",
+                  )}
+                >
+                  <p className="font-medium">
+                    {c.title}
+                    {i === director.selected_index ? " · chosen" : ""}
+                  </p>
+                  <p className="text-fg-muted">{c.concept}</p>
+                  <p className="mt-1 text-fg-subtle">
+                    {Object.entries(c.scores)
+                      .map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`)
+                      .join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <div>
@@ -126,6 +206,7 @@ export function ProvenanceView({ detail }: { detail: RunDetail }) {
                 key={`${s.shot_id}-${v.kind}-${v.attempt}-${v.archived}`}
                 v={v}
                 shotId={s.shot_id}
+                creative={creative}
               />
             )),
           )}

@@ -1,7 +1,11 @@
 import { knownEntityIds, validateStoryboard } from "../../agents/storyboard-artist.js";
 import type { BudgetLedger } from "../../budget/ledger.js";
 import { resolveProviders } from "../../config/settings.js";
-import { approveStoryboard } from "../../pipeline/approval.js";
+import {
+  approveStoryboard,
+  requestConceptRegeneration,
+  requestStoryboardShotRegeneration,
+} from "../../pipeline/approval.js";
 import type { RunContext } from "../../pipeline/run.js";
 import { resetFrom } from "../../pipeline/runner.js";
 import { loadShotRecord } from "../../pipeline/shots.js";
@@ -12,6 +16,7 @@ import { assessStoryboardRisk } from "../../qc/storyboard-risk.js";
 import { routeShots } from "../../router/route.js";
 import { CreativeBriefSchema } from "../../schema/brief.js";
 import { OUTPUT } from "../../schema/common.js";
+import type { VariationStrength } from "../../schema/creative.js";
 import { RoutingPlanSchema } from "../../schema/routing.js";
 import {
   type Shot,
@@ -19,7 +24,7 @@ import {
   StoryboardArtifactSchema,
 } from "../../schema/storyboard.js";
 import { VoiceResultSchema } from "../../schema/voice.js";
-import { shortHash, writeJsonAtomic } from "../../util/fs.js";
+import { nowIso, shortHash, writeJsonAtomic } from "../../util/fs.js";
 import type { EditImpact, StoryboardEditRequest } from "../api-types.js";
 import { estimatorProviders, regenerationEstimate } from "./estimates.js";
 
@@ -220,17 +225,31 @@ export function applyEdit(
 }
 
 /** Throw away the storyboard and let the artist write a new one (a paid LLM call). */
-export function requestStoryboardRegeneration(run: RunContext, actor = "local-user"): string[] {
+export function requestStoryboardRegeneration(
+  run: RunContext,
+  actor = "local-user",
+  req: { variation?: VariationStrength; instruction?: string | null } = {},
+): string[] {
+  const variation = req.variation ?? "fresh";
   run.repos.audit({
     actor,
     action: "storyboard.regenerate",
     target_type: "run",
     target_id: run.runId,
     run_id: run.runId,
+    details: { variation, instruction: req.instruction ?? null },
   });
+  run.manifest.pending_regeneration = {
+    target: "storyboard",
+    shot_id: null,
+    variation,
+    instruction: req.instruction ?? null,
+    requested_at: nowIso(),
+    actor,
+  };
   run.manifest.options.dry_run = true;
   run.save();
   return resetFrom(run, ALL_STAGES, "storyboard");
 }
 
-export { approveStoryboard };
+export { approveStoryboard, requestConceptRegeneration, requestStoryboardShotRegeneration };

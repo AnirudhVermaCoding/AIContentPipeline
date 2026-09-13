@@ -147,6 +147,17 @@ export const BrandProfileSchema = z.object({
     handle: z.string().default(""),
   }),
   entities: z.array(BrandEntity).default([]),
+  /**
+   * Default creative controls for this brand's runs (0–1). Optional and without defaults on
+   * purpose: adding a default would change every brand's config version. Runs resolve
+   * request → these → 0.65 / 0.85 and store the result themselves.
+   */
+  creative_defaults: z
+    .object({
+      creative_freedom: z.number().min(0).max(1).optional(),
+      goal_focus: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
   edit_defaults: z.object({
     mode_bias: EditMode.default("ASSEMBLY"),
     modes_allowed: z.array(EditMode).default(["NONE", "FINISH_ONLY", "LIGHT", "ASSEMBLY"]),

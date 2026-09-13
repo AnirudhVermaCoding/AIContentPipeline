@@ -7,6 +7,7 @@ import { listProducts } from "../brand/products.js";
 import { BudgetLedger } from "../budget/ledger.js";
 import { loadEnv, providerMode } from "../config/env.js";
 import { buildReport, renderMarkdown } from "../cost/report.js";
+import { controlsForRun, describeControls } from "../creative/controls.js";
 import { Repos } from "../db/repos.js";
 import { openDb } from "../db/sqlite.js";
 import { addTrack, loadMusicLibrary, musicDir } from "../media/music.js";
@@ -138,12 +139,31 @@ program
     "pause for human approval of keyframes before any animation",
     false,
   )
+  .option(
+    "--creative-freedom <0-1>",
+    "how adventurous the creative direction may be (brand default, else 0.65)",
+    Number.parseFloat,
+  )
+  .option(
+    "--goal-focus <0-1>",
+    "how strongly every decision serves the goal (brand default, else 0.85)",
+    Number.parseFloat,
+  )
   .option("--dry-run", "plan and estimate only; stop before the first paid media generation", false)
   .option("--until <stage>", "stop after this stage id")
   .option("--mock", "use offline mock providers (also PROVIDER_MODE=mock)", false)
   .option("--quiet", "less console output", false)
   .action(async (opts) => {
     const mode = opts.mock ? "mock" : providerMode();
+    for (const [flag, value] of [
+      ["--creative-freedom", opts.creativeFreedom],
+      ["--goal-focus", opts.goalFocus],
+    ] as const) {
+      if (value !== undefined && !(Number.isFinite(value) && value >= 0 && value <= 1)) {
+        console.error(`${flag} must be a number between 0 and 1`);
+        process.exit(1);
+      }
+    }
     const run = createRun({
       brandId: opts.brand,
       topic: opts.topic,
@@ -161,12 +181,17 @@ program
         until: opts.until ?? null,
         dry_run: opts.dryRun,
         brand_source: opts.pinBrand ? "snapshot" : "live",
+        ...(Number.isFinite(opts.creativeFreedom)
+          ? { creative_freedom: opts.creativeFreedom }
+          : {}),
+        ...(Number.isFinite(opts.goalFocus) ? { goal_focus: opts.goalFocus } : {}),
       },
       quiet: opts.quiet,
     });
     attachProviders(run, mode);
+    const creative = controlsForRun(run);
     console.log(
-      `Run ${run.runId} for ${run.brand.profile.name} (${mode} providers, cap $${run.manifest.cost.hard_cap_usd.toFixed(2)})`,
+      `Run ${run.runId} for ${run.brand.profile.name} (${mode} providers, cap $${run.manifest.cost.hard_cap_usd.toFixed(2)}, ${describeControls(creative)})`,
     );
     const result = await runUnderBudget(run, `cli run ${run.runId}`);
     exitFor(result, run);
@@ -240,6 +265,7 @@ program
     console.log(
       `cap $${m.cost.hard_cap_usd.toFixed(2)}  estimated $${m.cost.estimated_usd.toFixed(2)}  spent $${run.budget.spentUsd.toFixed(3)}`,
     );
+    console.log(describeControls(controlsForRun(run)));
     console.log("\nStages:");
     for (const s of ALL_STAGES) {
       const st = m.stages[s.id];

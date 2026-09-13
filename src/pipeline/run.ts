@@ -15,6 +15,7 @@ import {
   resolveProviders,
   snapshotProviders,
 } from "../config/settings.js";
+import { resolveCreativeControls } from "../creative/controls.js";
 import { Repos } from "../db/repos.js";
 import { openDb } from "../db/sqlite.js";
 import type { Providers } from "../providers/types.js";
@@ -160,6 +161,15 @@ export function createRun(p: CreateRunParams): RunContext {
   const runId = p.runId ?? newRunId();
   const runDir = ensureDir(runDirFor(brand.profile.id, runId));
   const hardCap = p.options.budget_override_usd ?? brand.profile.budget.hard_cap_usd;
+  // Creative controls are resolved once (request → brand default → fallback) and stored, so a
+  // later brand edit never changes what this run generates with.
+  const creative = resolveCreativeControls(p.options, brand.profile);
+  const options: RunOptions = {
+    ...p.options,
+    creative_freedom: creative.creative_freedom,
+    goal_focus: creative.goal_focus,
+    creative_sources: creative.sources,
+  };
   const manifest: RunManifest = {
     run_id: runId,
     brand_id: brand.profile.id,
@@ -172,7 +182,7 @@ export function createRun(p: CreateRunParams): RunContext {
     created_at: nowIso(),
     updated_at: nowIso(),
     status: "running",
-    options: p.options,
+    options,
     providers: snapshotProviders(settings),
     stages: {},
     cost: {

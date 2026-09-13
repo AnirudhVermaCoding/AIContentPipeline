@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AssetSource } from "./common.js";
+import { VariationStrength } from "./creative.js";
 import { QcCheck } from "./qc.js";
 
 export const AssetMeta = z.object({
@@ -83,6 +84,8 @@ export const ShotRecordSchema = z.object({
     .object({
       prompt: z.string().nullable().default(null),
       instruction: z.string().nullable().default(null),
+      /** How far the next version may move from the current one (studio regeneration). */
+      variation: VariationStrength.nullable().optional(),
     })
     .optional(),
 });

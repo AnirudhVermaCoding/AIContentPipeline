@@ -142,6 +142,11 @@ entities:
     static_features: a child of about four with short dark curly hair, seen from behind or the side, small hands, never a clear frontal face
     dynamic_defaults: mustard-yellow long-sleeve top, grey socks
 
+# Creative controls default to the "Creative Ad" preset for this brand: an original way to sell.
+creative_defaults:
+  creative_freedom: 0.70
+  goal_focus: 0.90
+
 edit_defaults:
   mode_bias: LIGHT
   modes_allowed: [NONE, FINISH_ONLY, LIGHT, ASSEMBLY]

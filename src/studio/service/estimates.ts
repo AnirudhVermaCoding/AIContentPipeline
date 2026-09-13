@@ -3,6 +3,11 @@ import type { BrandProfile } from "../../brand/schema.js";
 import type { BudgetLedger } from "../../budget/ledger.js";
 import { llmEstimate, PRICING_AS_OF } from "../../config/pricing.js";
 import { type ProviderSettings, resolveProviders } from "../../config/settings.js";
+import {
+  conceptCandidateCount,
+  controlsForRun,
+  DEFAULT_CREATIVE_CONTROLS,
+} from "../../creative/controls.js";
 import type { RunContext } from "../../pipeline/run.js";
 import { PRODUCTION_STAGES } from "../../pipeline/stages/index.js";
 import { buildProviders } from "../../providers/registry.js";
@@ -19,6 +24,7 @@ import type {
   PreflightView,
   RegenerationEstimate,
 } from "../api-types.js";
+import { creativeView } from "./creative.js";
 
 /**
  * Everything the UI shows before money is spent. All numbers here are ESTIMATED: they use the
@@ -59,6 +65,13 @@ export interface PrePlanInputs {
   narration?: "brand_default" | "voice" | "no_voice";
   referenceCount?: number;
   hardCapUsd?: number | null;
+  /** Drives how many concept candidates the director drafts (and therefore its output size). */
+  creativeFreedom?: number | null;
+}
+
+/** Output-token allowance for the director's single call, growing with the candidate count. */
+export function directorOutputTokens(candidates: number): number {
+  return CREATIVE_OUT + 1200 * Math.max(0, candidates - 1);
 }
 
 /** Before any stage has run: a range from the brand's pacing and the pricing table. */
@@ -76,7 +89,17 @@ export function prePlanEstimate(
     inputs.durationS ?? (profile.pacing.duration_s.min + profile.pacing.duration_s.max) / 2;
 
   // Planning LLM work (creative director → continuity), plus per-shot prompters.
-  const director = agentEstimate(p, "creative-director", "creative", CREATIVE_OUT);
+  const candidates = conceptCandidateCount(
+    inputs.creativeFreedom ??
+      profile.creative_defaults?.creative_freedom ??
+      DEFAULT_CREATIVE_CONTROLS.creative_freedom,
+  );
+  const director = agentEstimate(
+    p,
+    "creative-director",
+    "creative",
+    directorOutputTokens(candidates),
+  );
   const research = agentEstimate(p, "researcher", "creative", 1800, 6000, 3);
   const writer = agentEstimate(p, "screenwriter", "creative", 1500);
   const artist = agentEstimate(p, "storyboard-artist", "creative", 3500, 12000);
@@ -89,7 +112,7 @@ export function prePlanEstimate(
     item: "Creative direction, script, storyboard, continuity (LLM)",
     min_usd: planningMin,
     max_usd: planningMax,
-    note: "Research adds a web-search pass only when the creative director asks for it.",
+    note: `${candidates > 1 ? `The director drafts ${candidates} concept candidates in one call at this creative freedom. ` : ""}Research adds a web-search pass only when the creative director asks for it.`,
   });
 
   // Narration.
@@ -197,6 +220,8 @@ export function budgetCheckView(
 
 /** The preflight after planning: exact routing numbers, still an estimate for what follows. */
 export function preflightView(run: RunContext, ledger: BudgetLedger): PreflightView {
+  const controls = controlsForRun(run);
+  const candidates = conceptCandidateCount(controls.creative_freedom);
   const settings = resolveProviders(run.brand.profile);
   const hardCap = run.manifest.cost.hard_cap_usd;
   const spent = run.budget.spentUsd;
@@ -209,9 +234,11 @@ export function preflightView(run: RunContext, ledger: BudgetLedger): PreflightV
       aiVideoSeconds: run.manifest.cost.ai_video_seconds_target,
       referenceCount: run.brand.product?.references.filter((r) => r.exists).length ?? 0,
       hardCapUsd: hardCap,
+      creativeFreedom: controls.creative_freedom,
     });
     return {
       stage: "pre_plan",
+      creative: { controls: creativeView(controls), candidate_count: candidates },
       estimate,
       route_estimate_usd: null,
       hard_cap_usd: hardCap,
@@ -290,6 +317,7 @@ export function preflightView(run: RunContext, ledger: BudgetLedger): PreflightV
   };
   return {
     stage: "planned",
+    creative: { controls: creativeView(controls), candidate_count: candidates },
     estimate,
     route_estimate_usd: route.totals.est_total_usd,
     hard_cap_usd: hardCap,
@@ -382,6 +410,69 @@ export function regenerationEstimate(
       usd: agentEstimate(p, "continuity-controller", "fast", 2500, 12000),
       note: "only the changed shots get new continuity text",
     });
+  } else if (kind === "concept") {
+    const controls = controlsForRun(run);
+    const candidates = conceptCandidateCount(controls.creative_freedom);
+    breakdown.push({
+      item: `Creative direction (${p.llmCreative.model})`,
+      usd: agentEstimate(p, "creative-director", "creative", directorOutputTokens(candidates)),
+      note:
+        candidates > 1
+          ? `${candidates} concept candidates in one call at creative freedom ${controls.creative_label}`
+          : "one concept",
+    });
+    breakdown.push({
+      item: `Research (${p.llmCreative.model})`,
+      usd: agentEstimate(p, "researcher", "creative", 1800, 6000, 3),
+      note: "only if the new brief asks for it (upper bound)",
+    });
+    breakdown.push({
+      item: `Script (${p.llmCreative.model})`,
+      usd: agentEstimate(p, "screenwriter", "creative", 1500),
+      note: "",
+    });
+    const voice = run.hasOutput("03_voice") ? run.readOutput("03_voice", VoiceResultSchema) : null;
+    const chars = voice?.characters ?? Math.round(run.brand.profile.pacing.duration_s.max * 13);
+    if (!voice?.music_only)
+      breakdown.push({
+        item: `Narration (${p.tts.id} ${p.tts.model})`,
+        usd: p.tts.estimate(chars),
+        note: "a new script means the lines are synthesised again",
+      });
+    breakdown.push({
+      item: `Storyboard (${p.llmCreative.model})`,
+      usd: agentEstimate(p, "storyboard-artist", "creative", 3500, 12000),
+      note: "",
+    });
+    breakdown.push({
+      item: `Continuity (${p.llmFast.model})`,
+      usd: agentEstimate(p, "continuity-controller", "fast", 2500, 12000),
+      note: "",
+    });
+    if (sb && route && run.hasOutput("07_keyframes") && sb.shots.length)
+      breakdown.push({
+        item: "Re-producing every shot after a new concept",
+        usd: route.shots.reduce((n, s) => n + s.est_cost_usd, 0),
+        note: "existing keyframes and clips stay on disk as archived versions",
+      });
+  } else if (kind === "storyboard_shot") {
+    breakdown.push({
+      item: `Shot rewrite (${p.llmCreative.model})`,
+      usd: agentEstimate(p, "storyboard-shot-rewrite", "creative", 900, 8000),
+      note: "one shot, the rest of the storyboard is locked",
+    });
+    breakdown.push({
+      item: `Continuity (${p.llmFast.model})`,
+      usd: agentEstimate(p, "continuity-controller", "fast", 2500, 12000),
+      note: "only the rewritten shot gets new continuity text",
+    });
+    const r = route?.shots.find((s) => s.shot_id === shotId);
+    if (r && run.hasOutput("07_keyframes"))
+      breakdown.push({
+        item: `Re-producing ${shotId ?? "the shot"}`,
+        usd: r.est_cost_usd,
+        note: "only this shot's keyframe and clip are produced again",
+      });
   }
   const total = breakdown.reduce((n, b) => n + b.usd, 0);
   return {

@@ -1,0 +1,114 @@
+{
+  "candidates": [
+    {
+      "title": "The fix",
+      "concept": "A four-year-old, seen only from behind and at hand level, lines up the wooden path tiles wrong, watches the Wobble Bot topple, and fixes the path herself. No adult voice tells her what to do. The film is the small, private victory of a child who worked something out alone, and the parent who noticed from the doorway.",
+      "hook": "A tiny hand sets the last tile down crooked. The Wobble Bot rolls, tips, and rights itself with a wobble.",
+      "why": "Parents lean in when something is about to go wrong for a child. The wobble is the brand in one gesture.",
+      "scores": {
+        "originality": 7,
+        "goal_alignment": 9,
+        "brand_fit": 9,
+        "feasibility": 8,
+        "product_accuracy": 9,
+        "budget_feasibility": 8,
+        "ai_slop_risk": 2
+      }
+    },
+    {
+      "title": "The doorway",
+      "concept": "The whole film from the parent's point of view in the doorway: the child small in frame, the Wobble Bot smaller still, and the parent never stepping in. The satisfaction is the parent's restraint.",
+      "hook": "A parent's hand on a door frame, not moving.",
+      "why": "It sells the feeling parents actually want, being able to leave the child to it, but it keeps the product tiny and the product accuracy check would be harder.",
+      "scores": {
+        "originality": 8,
+        "goal_alignment": 6,
+        "brand_fit": 7,
+        "feasibility": 7,
+        "product_accuracy": 8,
+        "budget_feasibility": 7,
+        "ai_slop_risk": 4
+      }
+    }
+  ],
+  "selected_index": 0,
+  "brief": {
+    "concept": "A four-year-old, seen only from behind and at hand level, lines up the wooden path tiles wrong, watches the Wobble Bot topple, and fixes the path herself. No adult voice tells her what to do. The film is the small, private victory of a child who worked something out alone, and the parent who noticed from the doorway.",
+    "hook": {
+      "line": "A tiny hand sets the last tile down crooked. The Wobble Bot rolls, tips, and rights itself with a wobble.",
+      "type": "a moment, not a headline: the first stumble",
+      "why": "Parents lean in when something is about to go wrong for a child. The wobble is the brand in one gesture."
+    },
+    "emotional_arc": [
+      {
+        "beat": "quiet focus",
+        "emotion": "tenderness",
+        "purpose": "we are on the floor with her, at her height"
+      },
+      {
+        "beat": "the stumble",
+        "emotion": "gentle worry",
+        "purpose": "the bot tips; she goes still"
+      },
+      {
+        "beat": "she fixes it",
+        "emotion": "delight",
+        "purpose": "she moves one tile without any help"
+      },
+      {
+        "beat": "the parent notices",
+        "emotion": "quiet pride",
+        "purpose": "twenty minutes, no screen"
+      }
+    ],
+    "pillar_id": "everyday_play",
+    "audience_insight": "Tired parents do not want a smarter child; they want to catch their child absorbed, on their own, and feel they got something right.",
+    "narrative_device": "one continuous moment on a living-room floor, told in held shots",
+    "key_message": "Left alone with something worth figuring out, she figures it out.",
+    "target_duration_s": 32,
+    "research_depth": "none",
+    "research_questions": [],
+    "text_overlay_intent": "hook_only",
+    "cta_decision": {
+      "use": true,
+      "text": "Bachalogy. Toys that grow with the play.",
+      "style": "end_card"
+    },
+    "edit_mode_intent": "LIGHT",
+    "motion_promise": {
+      "kind": "mixed",
+      "min_ai_video_s": 10,
+      "min_motion_ratio": 0.3,
+      "still_fallback_allowed": false,
+      "reason": "The topple and the fix are physical events; the film breaks if they are stills. The rest can be held frames."
+    },
+    "visual_world": {
+      "setting": "a lived-in living room floor with a low wooden table, crumbs, a sock half off",
+      "time_of_day": "mid morning",
+      "lighting": "soft window light from the left, warm neutral, soft shadows",
+      "palette_note": "cream carpet, honey wood, the toy's sky blue as the only saturated colour, one amber accent",
+      "texture_note": "carpet fibre, wood grain on the tiles, fingerprints on matte plastic"
+    },
+    "entities_needed": [
+      {
+        "id": "wobble_bot",
+        "role": "the product, always in frame",
+        "is_new": false,
+        "description": null
+      },
+      {
+        "id": "child",
+        "role": "the protagonist, never face-on",
+        "is_new": false,
+        "description": null
+      }
+    ],
+    "avoid": [
+      "any adult hand guiding the child",
+      "a clear frontal face",
+      "glossy product-shot framing",
+      "text over the child"
+    ],
+    "why_it_works": "It is one true moment, at the child's height, with the product doing the one thing it is built to do."
+  }
+}

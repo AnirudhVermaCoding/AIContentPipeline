@@ -1,6 +1,12 @@
 import { z } from "zod";
+import {
+  buildCreativeControlContext,
+  controlsForRun,
+  hardConstraintsFor,
+} from "../creative/controls.js";
 import type { RunContext } from "../pipeline/run.js";
 import type { ContinuityBible } from "../schema/continuity.js";
+import type { VariationStrength } from "../schema/creative.js";
 import type { Shot } from "../schema/storyboard.js";
 import { type AgentResult, callAgent } from "./base.js";
 
@@ -17,8 +23,24 @@ export async function runImagePrompter(
   continuity: ContinuityBible,
   previousShot: Shot | null,
   feedback: string | null,
+  variation: VariationStrength | null = null,
 ): Promise<AgentResult<ImagePrompt>> {
   const per = continuity.per_shot.find((p) => p.shot_id === shot.id);
+  const controls = controlsForRun(run);
+  const creative = buildCreativeControlContext({
+    creativeFreedom: controls.creative_freedom,
+    goalFocus: controls.goal_focus,
+    stage: "image",
+    hardConstraints: [
+      ...(per?.identity_blocks ?? []).map((b) => `Identity block (restate verbatim): ${b}`),
+      ...(per?.must_match.attributes.length
+        ? [`Must match the previous shot: ${per.must_match.attributes.join("; ")}`]
+        : []),
+      ...hardConstraintsFor(run.brand),
+      "Identity-critical reference images are attached to the generation and define the product's look.",
+    ],
+    variation: variation ? { strength: variation, target: "keyframe" } : null,
+  });
   const userMessage = `# Keyframe prompt for ${shot.id}
 Style bible: ${continuity.style_bible}
 Locks: light: ${continuity.locks.lighting}; palette: ${continuity.locks.palette}; grade: ${continuity.locks.color_grade}; camera: ${continuity.locks.camera_language}; realism: ${continuity.locks.realism}
@@ -36,7 +58,9 @@ ${previousShot ? `Previous shot showed: ${previousShot.description}` : "This is 
 ${per?.identity_blocks.map((b) => `- ${b}`).join("\n") || "- none"}
 Must match: ${per?.must_match.attributes.join("; ") || "nothing specific"}
 ${feedback ? `\n## Feedback from the previous attempt\n${feedback}\n` : ""}
-Return the prompt and a short negative_prompt.`;
+${creative.text}
+
+Return the prompt (60 to 120 words) and a short negative_prompt.`;
 
   return callAgent(run, {
     name: "image-prompter",

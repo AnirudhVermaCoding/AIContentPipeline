@@ -1,3 +1,8 @@
+import {
+  buildCreativeControlContext,
+  controlsForRun,
+  hardConstraintsFor,
+} from "../creative/controls.js";
 import type { RunContext } from "../pipeline/run.js";
 import type { CreativeBrief } from "../schema/brief.js";
 import type { ResearchNotes } from "../schema/research.js";
@@ -15,6 +20,18 @@ export async function runScreenwriter(
   const b = run.brand.profile;
   const wordBudget = Math.round(brief.target_duration_s * WORDS_PER_SECOND * 0.85);
   const facts = research.facts.map((f) => `- ${f.claim} (${f.confidence})`).join("\n");
+  const controls = controlsForRun(run);
+  const creative = buildCreativeControlContext({
+    creativeFreedom: controls.creative_freedom,
+    goalFocus: controls.goal_focus,
+    stage: "script",
+    goal: run.manifest.goal,
+    hardConstraints: [
+      ...hardConstraintsFor(run.brand),
+      `Word budget: at most ${wordBudget} words; lines of 2 to 22 words; no em dashes.`,
+      "Facts come only from the research notes and the brand profile; creativity never invents a claim.",
+    ],
+  });
   const userMessage = `# Script assignment
 ${run.brain.creative}
 
@@ -35,6 +52,8 @@ ${facts || "- no facts supplied"}
 Audience language: ${research.audience_language.join(" | ") || "n/a"}
 Sensory details: ${research.sensory_details.join(" | ") || "n/a"}
 Cautions: ${research.cautions.join(" | ") || "none"}
+
+${creative.text}
 
 Narration policy for this brand is "${b.voice.narration_policy}". ${
     b.voice.narration_policy === "never"

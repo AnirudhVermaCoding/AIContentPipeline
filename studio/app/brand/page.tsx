@@ -3,6 +3,7 @@
 import type { BrandDetail, BrandProfile } from "@pipeline/studio/api-types";
 import { History, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { CreativeControlsEditor } from "@/components/creative-controls";
 import { Money } from "@/components/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ function Section({
 }
 
 export default function BrandPage() {
-  const { brandId, refreshBrands } = useStudio();
+  const { brandId, refreshBrands, settings } = useStudio();
   const { data, error, loading, refresh } = useApi<BrandDetail>(
     brandId ? `/api/brands/${brandId}` : null,
     { deps: [brandId] },
@@ -761,6 +762,33 @@ export default function BrandPage() {
                 onChange={(e) => setIn("budget", { keyframe_attempts: Number(e.target.value) })}
               />
             </Field>
+          </Section>
+          <Section
+            title="Creative defaults"
+            description="Where Create Video starts its Creative Freedom and Goal Focus sliders for this brand. Each run stores its own values, so changing these never alters an existing run."
+          >
+            <div className="sm:col-span-2">
+              <CreativeControlsEditor
+                value={{
+                  creative_freedom:
+                    p.creative_defaults?.creative_freedom ??
+                    settings?.creative.defaults.creative_freedom ??
+                    0.65,
+                  goal_focus:
+                    p.creative_defaults?.goal_focus ??
+                    settings?.creative.defaults.goal_focus ??
+                    0.85,
+                }}
+                onChange={(v) => set("creative_defaults", v)}
+                settings={settings?.creative}
+              />
+              {!p.creative_defaults ? (
+                <p className="mt-2 text-xs text-fg-subtle">
+                  Not set in brand.yaml yet: the pipeline defaults apply until you move a slider and
+                  save.
+                </p>
+              ) : null}
+            </div>
           </Section>
           <Section
             title="Provider preferences"
